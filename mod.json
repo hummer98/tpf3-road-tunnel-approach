@@ -1,0 +1,15 @@
+{
+	"modId": "road_tunnel_ramp",
+	"revision": 10000,
+	"severityAdd": "None",
+	"severityRemove": "Warning",
+	"visible": true,
+	"cosmetic": false,
+	"dependencies": null,
+	"incompatibilities": null,
+	"options": null,
+	"preRunScript": { "fileName": "" },
+	"runScript": { "fileName": "" },
+	"postRunScript": { "fileName": "" },
+	"params": null
+}

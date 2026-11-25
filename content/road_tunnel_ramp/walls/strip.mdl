@@ -1,0 +1,3 @@
+function data()
+return {["version"]=2,["boundingInfo"]={["bbMin"]={0,-0.225,0},["bbMax"]={1,0.225,1}},["lods"]={{["node"]={["name"]="Root",["transf"]={1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1},["children"]={{["name"]="strip",["mesh"]="/road_tunnel_ramp/walls/aom_strip_box.msh",["materials"]={"::/warehouses/wh_goods/mat/warehouse_goods_concrete.mtl"},["transf"]={1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1}}}},["visibleFrom"]=0,["visibleTo"]=3000}},["metadata"]={}}
+end

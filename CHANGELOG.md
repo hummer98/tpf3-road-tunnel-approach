@@ -1,0 +1,65 @@
+# Changelog
+
+All notable changes to Road Tunnel Approach are recorded here. The format
+follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the
+mod uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The
+mod's `revision` in `mod.json` is MAJOR * 10000 + MINOR * 100 + PATCH.
+
+The first public release is 1.0.0 (`revision` 10000).
+
+## [Unreleased]
+
+First public release.
+
+### Added
+- **Road Tunnel Approach** (Roads > Road Constructions): one construction
+  lays a street ramp from the surface into an underground road tunnel: a
+  flat approach street, the descent in an open trench between concrete
+  retaining walls with coping, the portal with a cover slab, and a 30 m
+  vanilla car tunnel stub that your own tunnel can snap to. The terrain is
+  cut and levelled around it. Snap it to the end of a street.
+- Eight street types: seven of the base game's, from the One-Lane Highway
+  (9 m) to the Large Street (32 m), and this mod's two lanes for motor
+  vehicles only (8 m, a 0.5 m shoulder each side, no sidewalks). Wider
+  streets widen the trench, walls and portal cover.
+- Up to three streets side by side; with the one-way highways this builds a
+  divided road or a 2+1 layout, each direction on the side chosen by
+  Traffic side.
+- Settings for ramp length (40–100 m), approach length (2–50 m),
+  underground depth (13–25 m), slope curvature (five shapes), retaining
+  wall (1.5 m with a parapet, or 3.4 m with a wide coping), traffic side
+  and traffic direction (one-way highways).
+- Ground slope along and across (−20 to +20%): the walls, coping, portal
+  cover and the banks beside them follow sloped ground; the street stays
+  level with the road it snaps to.
+- The flat approach street becomes an ordinary street once the ramp is
+  built, so other streets join it like any street and it stays when the
+  ramp is bulldozed; the descent, tunnel and stub stay in the construction.
+- The build cursor shows the steepest grade of the current settings and the
+  measured slope of the ground, next to the lines other mods add there.
+- **Median Tunnel Approach** (same menu): the two-lane centre of a town
+  street goes down into a road tunnel with the full-width ramp's descent,
+  walls, coping, portal cover and tunnel stub, while a one-way side street
+  each side, sidewalk outside, stays on the surface against the coping.
+  Entry street 2, 4 or 6 lanes (one lane in each side street with 2 and 4,
+  two with 6); placed on a four-lane street it is that street's 24 m
+  across. Centre street: two lanes for motor vehicles only (initial
+  setting), Small Street, Country Road (small) or One-Lane Highway. The
+  retaining wall, ramp length, approach length (30–50 m), depth, slope
+  curvature, traffic side, traffic direction (highway centre) and ground
+  slope settings work as on the full-width ramp.
+- The median's side streets run straight beside the walls and the portal
+  cover, as long as both together, so their length follows the ramp length,
+  depth, curvature and slopes. Once built they are ordinary streets: the
+  town builds houses on their outer side and none on the wall side. Nothing
+  joins them to the road: draw the fork in front of them and the merge
+  past them yourself.
+- **Side street (one-way, one sidewalk)** in the street menu, with the
+  small streets: the median's one-lane side street, to draw the fork and
+  the merge with. Laid the way its traffic runs, its sidewalk is on the
+  right.
+- The walls, coping and portal cover are on this mod's own box meshes, in
+  the base game's light concrete.
+- Strings in the game's 13 languages.
+- Credits: the ramp's shape follows Railway Tunnel Approach by Enivia
+  (mod.io 6497196), rescaled for roads.

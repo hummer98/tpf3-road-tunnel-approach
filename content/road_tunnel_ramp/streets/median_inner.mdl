@@ -1,0 +1,18 @@
+-- Empty model for median_inner.edge.lua: no mesh and no collider, so the
+-- decoration only carries preventParcels (shape as in published mods'
+-- empty platform models).
+function data()
+return {
+	boundingInfo = { bbMin = { 0, 0, 0 }, bbMax = { 0, 0, 0 } },
+	collider = { type = "NONE" },
+	lods = {
+		{
+			node = { children = { }, transf = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 }, name = "RootNode" },
+			visibleFrom = 0,
+			visibleTo = 1000,
+		},
+	},
+	metadata = { },
+	version = 2,
+}
+end
