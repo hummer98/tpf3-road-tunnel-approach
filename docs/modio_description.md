@@ -24,7 +24,7 @@ A tunnel approach across a whole town street leaves no street for houses to fron
 - Entry street: 2, 4 or 6 lanes (one lane in each side street with 2 and 4, two with 6).
 - Centre street: two lanes for motor vehicles only (initial setting), Small Street, Country Road or One-Lane Highway.
 - The side streets are as long as the walls and the portal cover together, so they follow the ramp length, depth and slopes. Once built they are ordinary streets: the town builds houses on their outer side, none on the wall side.
-- **You draw the fork and the merge yourself.** Nothing joins the side streets to the road: draw an S-curve from the road out to each side street's near end, and join their far ends back past the portal cover. The street menu has the one-lane side street for this: **Side street (one-way, one sidewalk)**, with the small streets. Draw it the way its traffic runs and its sidewalk is on the right, the outside of the trench with right-hand traffic. (With entry 6 the side streets have two lanes; join them with an ordinary street.)
+- **You draw the fork and the merge yourself.** I wanted this to be one piece that joins a four-lane street cleanly at both ends. I tried every way I could find and the game would not have it. Sorry: this part is yours to draw. Nothing joins the side streets to the road: draw an S-curve from the road out to each side street's near end, and join their far ends back past the portal cover. The street menu has the one-lane side street for this: **Side street (one-way, one sidewalk)**, with the small streets. Draw it the way its traffic runs and its sidewalk is on the right, the outside of the trench with right-hand traffic. (With entry 6 the side streets have two lanes; join them with an ordinary street.)
 - Retaining wall, ramp length, approach length (30–50 m, room for the fork), depth, slope curvature, traffic side, traffic direction (highway centre) and ground slope as on the full-width ramp.
 
 ### Notes
@@ -57,7 +57,7 @@ License: MIT. Source code: https://github.com/hummer98/tpf3-road-tunnel-approach
 - 入口の道：2・4・6 車線（2 と 4 では側道が各1車線、6 では各2車線）。
 - 中央の道：2車線の車専用（初期設定）、街道（小）、田舎道（小）、1車線高速道路。
 - 側道は擁壁とポータル天蓋を合わせた長さで建ち、ランプの長さ・深さ・勾配に合わせて伸び縮みします。建設後はふつうの道路になり、町は側道の外側に建物を建てます。擁壁の側には建ちません。
-- **分かれ目と合流は自分で引きます。** 側道はどこにもつながっていません。道路から各側道の手前の端へ S 字に道を引き、天蓋の先で遠い端どうしを道路に戻してください。そのための1車線の側道が、道路のメニューの「街道（小）」の並びにあります：**側道（片側歩道の一方通行）**。車の進む向きに引くと歩道が右に来て、右側通行では掘り割りの外側になります（入口 6 の側道は2車線なので、ふつうの道路でつないでください）。
+- **分かれ目と合流は自分で引きます。**本当は、4車線の道の前後にそのままきれいにつながる、ひとまとまりの形にしたかったのですが、どうやってもできませんでした。すみませんが、ここは自分で引いてください。 側道はどこにもつながっていません。道路から各側道の手前の端へ S 字に道を引き、天蓋の先で遠い端どうしを道路に戻してください。そのための1車線の側道が、道路のメニューの「街道（小）」の並びにあります：**側道（片側歩道の一方通行）**。車の進む向きに引くと歩道が右に来て、右側通行では掘り割りの外側になります（入口 6 の側道は2車線なので、ふつうの道路でつないでください）。
 - 擁壁・ランプの長さ・手前の道路の長さ（30〜50 m。分かれ目を引く余地）・地下深度・勾配カーブ・通行区分・進行方向（中央が高速道路のとき）・地面の勾配は、全幅のものと同じです。
 
 ### 注意
