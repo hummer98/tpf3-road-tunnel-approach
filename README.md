@@ -238,7 +238,7 @@ and road tool, left-hand traffic, sloped ground.
   `<Steam>/userdata/<your id>/3493540/local/mods/`.
   - From the release zip: create that folder and extract the zip **into** it
     (the zip has no top folder of its own).
-  - From GitHub: `git clone <GitHub URL: not published yet> road_tunnel_ramp_1`
+  - From GitHub: `git clone https://github.com/hummer98/tpf3-road-tunnel-approach road_tunnel_ramp_1`
     inside `local/mods/` (a different folder name will not load).
   - Then enable the mod in the game.
 
@@ -426,7 +426,7 @@ revision is what lets `stage.py` accept the update. The tests fail when
 - mod.io：`<mod.io の URL：未公開>`（ゲーム内の MODハブからも購読できます）。
 - 手動：ゲームは `<Steam>/userdata/<ID>/3493540/local/mods/` の中の、名前がちょうど `road_tunnel_ramp_1` のフォルダからだけ読み込みます。
   - リリースの zip から：そのフォルダを作り、その**中に** zip を展開します（zip には外側のフォルダがありません）。
-  - GitHub から：`local/mods/` の中で `git clone <GitHub の URL：未公開> road_tunnel_ramp_1` とします（別のフォルダ名では読み込まれません）。
+  - GitHub から：`local/mods/` の中で `git clone https://github.com/hummer98/tpf3-road-tunnel-approach road_tunnel_ramp_1` とします（別のフォルダ名では読み込まれません）。
   - そのあとゲーム内で有効にします。
 
 ### 開発

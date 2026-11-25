@@ -35,7 +35,7 @@ A tunnel approach across a whole town street leaves no street for houses to fron
 
 Credits: the ramp's shape (the descent's curve, the portal position, the retaining walls, their top, the portal cover and the terrain cut) follows Railway Tunnel Approach by Enivia (mod.io 6497196), rescaled for roads. Thank you, Enivia. The code and the wall meshes are this mod's own; the walls use the base game's light concrete.
 
-License: MIT. Source code: <GitHub URL: not published yet>
+License: MIT. Source code: https://github.com/hummer98/tpf3-road-tunnel-approach
 
 ## 日本語
 
@@ -68,4 +68,4 @@ License: MIT. Source code: <GitHub URL: not published yet>
 
 クレジット：ランプの形（降り方の曲線、ポータルの位置、擁壁、笠石、ポータル天蓋、地形の掘り下げ）は Enivia さんの Railway Tunnel Approach（mod.io 6497196）にならって道路向けに作り直しました。Enivia さん、ありがとうございます。コードと擁壁のメッシュはこの MOD のもので、擁壁の素材はバニラの明るいコンクリートを使います。
 
-ライセンス：MIT。ソースコード：<GitHub の URL：未公開>
+ライセンス：MIT。ソースコード：https://github.com/hummer98/tpf3-road-tunnel-approach
