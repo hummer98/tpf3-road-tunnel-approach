@@ -9,6 +9,8 @@ The first public release is 1.0.0 (`revision` 10000).
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-25
+
 First public release.
 
 ### Added
