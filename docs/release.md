@@ -58,7 +58,7 @@ python3 tools/release.py --github-only        # HEAD のタグの push と GitHu
 
 ## 最初の公開（1.0.0）
 
-`VERSION` は 1.0.0、revision は 10000 で、1.0.0 の中身は `## [Unreleased]` に書いてある。mod.io にはまだ無い。
+`VERSION` は 1.0.0、revision は 10000 で、1.0.0 で公開済み（下の「mod.io の MOD ID の控え」）。以下は最初の公開のときの手順の記録。
 
 0. 公開の前の準備（開発用の clone で）。
    - 古い履歴には、公開しない名義のコミットがある。GitHub には履歴を出さず、今の中身を1つのコミット（名義 hummer）にまとめた `master` を出す。古い履歴は手元のタグ `local-history-before-publish` に残し、そのタグは push しない。まとめたあとの `master` は前の `master` とつながらないので、下の 2 の `git pull --ff-only` は通らない。`local/mods/` のコピーは、ゲームを止めて clone し直すか、`git fetch <開発用の clone> master` のあと `git reset --hard FETCH_HEAD` で切り替える（未コミットの変更が無いことを先に確認する）。
@@ -101,6 +101,6 @@ python3 tools/release.py --github-only        # HEAD のタグの push と GitHu
 6. 説明文が変わったら、mod.io の Web のページも直す。README の mod.io の URL は、最初の公開の後は変わらない。
 
 ## mod.io の MOD ID の控え
-- mod.io の MOD ID は、最初のアップロードのあとにここへ書く（まだ無い）。
+- MOD ID: 6552740（2026-11-26 に 1.0.0 を新規に公開）。GitHub: https://github.com/hummer98/tpf3-road-tunnel-approach
 - ゲームは、これを `local/staging_area/road_tunnel_ramp_1/_metadata/mod.io_fileid.txt` に書く（名前は fileid でも、中身は MOD ID）。`stage.py` が置き直しのたびに引き継ぐ。リポジトリには入れない（zip の `_metadata/` に入ってしまうため）。
 - ステージングのコピーが消えたときは、`stage.py --first-upload` で置き直してから、上の番号だけを書いた `mod.io_fileid.txt` をそこへ戻す。戻さずにアップロードすると、mod.io に2つ目のページができる。
