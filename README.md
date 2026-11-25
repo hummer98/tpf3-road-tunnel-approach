@@ -231,7 +231,7 @@ and road tool, left-hand traffic, sloped ground.
 
 ## Install
 
-- mod.io: `<mod.io URL: not published yet>` (or subscribe in the game's mod
+- mod.io: https://mod.io/g/transportfever3/m/road-tunnel-approach-full-width-median (or subscribe in the game's mod
   hub).
 - Manually: the game loads a local mod only from a folder named exactly
   `road_tunnel_ramp_1` inside
@@ -423,7 +423,7 @@ revision is what lets `stage.py` accept the update. The tests fail when
 
 ### 導入
 
-- mod.io：`<mod.io の URL：未公開>`（ゲーム内の MODハブからも購読できます）。
+- mod.io：https://mod.io/g/transportfever3/m/road-tunnel-approach-full-width-median（ゲーム内の MODハブからも購読できます）。
 - 手動：ゲームは `<Steam>/userdata/<ID>/3493540/local/mods/` の中の、名前がちょうど `road_tunnel_ramp_1` のフォルダからだけ読み込みます。
   - リリースの zip から：そのフォルダを作り、その**中に** zip を展開します（zip には外側のフォルダがありません）。
   - GitHub から：`local/mods/` の中で `git clone https://github.com/hummer98/tpf3-road-tunnel-approach road_tunnel_ramp_1` とします（別のフォルダ名では読み込まれません）。
