@@ -3,7 +3,8 @@
 The Portal cover length's lower end lives in ramp_geometry.lua (LID_MIN).
 1.1.1 raised it from 6m (at 6m the top of the game's tunnel portal piece
 showed past the cover; the user: 「下限を上げて隠す、ということですね」);
-e2e picks 8, 10 or 12. These tests hold the files the game's Lua cannot
+e2e chose 12 (2026-11-26: the piece showed at 6-10m, not at 11 or 12m).
+These tests hold the files the game's Lua cannot
 read (mod.json, the texts) to that value, and show that changing it is the
 constant plus one run of the tool.
 """
@@ -24,6 +25,10 @@ GEOMETRY_LINE = re.compile(r"^(M\.LID_MIN,\s*M\.LID_MAX,\s*M\.LID_DEFAULT\s*=\s*
 
 
 class UpToDateTest(unittest.TestCase):
+    def test_the_decided_range(self):
+        # e2e, 2026-11-26: 12m (6m past the portal), 18m initially, 24m at most
+        self.assertEqual(cover_range.lid_range(ROOT), (12, 24, 18))
+
     def test_every_file_follows_lid_min(self):
         self.assertEqual(cover_range.stale(ROOT), [],
                          "run python3 tools/cover_range.py")
@@ -83,7 +88,7 @@ def copy_repo(dst):
 
 @unittest.skipUnless(shutil.which("luajit"), "luajit not installed")
 class ChangeLidMinTest(unittest.TestCase):
-    """8 or 12 instead of 10: the constant, then the tool, and every test
+    """8 or 10 instead of 12: the constant, then the tool, and every test
     that holds the range passes again (in a copy of the repository)."""
 
     def change(self, lid_min, released=False):
@@ -138,8 +143,8 @@ class ChangeLidMinTest(unittest.TestCase):
     def test_8(self):
         self.change(8)
 
-    def test_12(self):
-        self.change(12)
+    def test_10(self):
+        self.change(10)
 
     def test_8_after_a_release(self):
         self.change(8, released=True)

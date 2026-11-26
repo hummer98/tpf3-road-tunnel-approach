@@ -131,14 +131,16 @@ end
 -- LID_MIN was 6 in 1.1.0: a 6m lid covers nothing past the portal, and the
 -- top of the game's tunnel portal piece (tunnel_a_car) showed beyond the
 -- slab's end [in game, picture, 2026-11-26]. The user: 「6mはなんかおかしい
--- ですよね」「下限を上げて隠す、ということですね」. 10 is provisional; e2e
--- picks 8, 10 or 12. Everything else follows this one value: both .con
+-- ですよね」「下限を上げて隠す、ということですね」. 12, from e2e
+-- [measured 2026-11-26, pictures]: at 6-10m the portal piece's top still
+-- showed past the slab, at 11 and 12m it did not; 12 (6m past the portal)
+-- leaves a margin over that edge. Everything else follows this one value: both .con
 -- sliders (their values, numbers and defaultIndex), the mod setting's
 -- positions (mod.script.lua's module), lidLengthOf below, and, through
 -- tools/cover_range.py (tests/test_cover_range.py fails until it is run),
 -- mod.json's setting and the ranges in README, the mod.io texts and the
 -- CHANGELOG's Unreleased section.
-M.LID_MIN, M.LID_MAX, M.LID_DEFAULT = 10, 24, 18
+M.LID_MIN, M.LID_MAX, M.LID_DEFAULT = 12, 24, 18
 M.LID_BEHIND = 6
 -- The ground over the tunnel's first HOLD_AHEAD past the portal is held
 -- over the tunnel roof whatever the lid's length: 1.0.0's lid reached that
@@ -158,7 +160,7 @@ end
 local value = M.value
 
 -- rtr_cover_length, read for the spec: a whole metre in the slider's range.
--- Below it, LID_MIN: a ramp placed with 1.1.0's 6-9m keeps that value in
+-- Below it, LID_MIN: a ramp placed with 1.1.0's 6-11m keeps that value in
 -- its params, and is rebuilt with it when its settings window changes it
 -- (or the game rebuilds it); the window's slider shows the nearest of its
 -- numbers for a value it lacks [source: gui script_param_util.tl

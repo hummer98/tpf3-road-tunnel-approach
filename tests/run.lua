@@ -4569,7 +4569,9 @@ do
 	-- and the top of the game's tunnel portal piece (tunnel_a_car) showed
 	-- past it [in game, picture, 2026-11-26]; the user: 「6mはなんかおかしい
 	-- ですよね」「下限を上げて隠す、ということですね」「OKです。その方針で」.
-	-- e2e picks 8, 10 or 12 (10 until then); 18m initially and 24m at most
+	-- e2e chose 12 [measured 2026-11-26: the piece showed at 6-10m, not at
+	-- 11 or 12m]; 8 and 10 stay allowed here so tests/test_cover_range.py
+	-- can run this file with them in a copy. 18m initially and 24m at most
 	-- stay.
 	test("cover length: the range is 8, 10 or 12 to 24m, 18m initially; the shortest reaches past the portal", function()
 		assert(MIN == 8 or MIN == 10 or MIN == 12, "LID_MIN " .. tostring(MIN))
@@ -4610,12 +4612,12 @@ do
 		end
 	end)
 
-	-- Below the range: LID_MIN. A ramp placed with 1.1.0's 6-9m keeps that
+	-- Below the range: LID_MIN. A ramp placed with 1.1.0's 6-11m keeps that
 	-- value in its params and is rebuilt with the shortest length, which is
 	-- also what its settings window's slider shows (the nearest of its
 	-- numbers: gui script_param_util.tl findNumberIndex1).
-	test("cover length: below the range reads as LID_MIN, 1.1.0's 6-9m too, and builds as LID_MIN", function()
-		for _, v in ipairs({ 6, 7, 8, 9, 9.99, MIN - 0.01, 5, 5.99, 0, -6, -math.huge, "6" }) do
+	test("cover length: below the range reads as LID_MIN, 1.1.0's 6-11m too, and builds as LID_MIN", function()
+		for _, v in ipairs({ 6, 7, 8, 9, 9.99, 10, 11, 11.6, MIN - 0.01, 5, 5.99, 0, -6, -math.huge, "6" }) do
 			if tonumber(v) < MIN then
 				local p = { rtr_cover_length = v }
 				eq(rampGeo.lidLengthOf(p), MIN, "value " .. tostring(v))

@@ -17,8 +17,8 @@
 			"name": "rtr_cover_length_default_name",
 			"tooltip": "rtr_cover_length_default_tooltip",
 			"uiType": "Slider",
-			"values": [ "10m", "11m", "12m", "13m", "14m", "15m", "16m", "17m", "18m", "19m", "20m", "21m", "22m", "23m", "24m" ],
-			"defaultIndex": 8
+			"values": [ "12m", "13m", "14m", "15m", "16m", "17m", "18m", "19m", "20m", "21m", "22m", "23m", "24m" ],
+			"defaultIndex": 6
 		}
 	]
 }
