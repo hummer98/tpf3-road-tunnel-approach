@@ -154,12 +154,15 @@ yourself, with ordinary streets (see below).
   **6** (Large Street, 32 m): two lanes in each side street (11.5 m: 2 x 4 m,
   3.5 m sidewalk). The centre carries one lane each way in all three (one
   way with the highway).
-- Fork and merge: yours to lay. Snapped to a street's end, the approach
-  starts there, and the side streets' near ends are 30–50 m on (the
-  Approach length): room for an S-curve from that end out to each side
-  street. Placed on open ground, every end (the approach's start and the
-  side streets' ends) is free to go on from. The approach is an ordinary
-  street, so it can also be bulldozed and the fork laid another way.
+- Fork and merge: yours to lay. I wanted this to be one piece that joins a
+  four-lane street cleanly at both ends. I tried every way I could find and
+  the game would not have it. Sorry: this part is yours to draw. Snapped to
+  a street's end, the approach starts there, and the side streets' near
+  ends are 30–50 m on (the Approach length): room for an S-curve from that
+  end out to each side street. Placed on open ground, every end (the
+  approach's start and the side streets' ends) is free to go on from. The
+  approach is an ordinary street, so it can also be bulldozed and the fork
+  laid another way.
   On sloped ground (either ground slope not 0%) the approach has retaining
   walls and coping either side from the snap point, right where an S-curve
   from the snap point would run: lay the fork in front of the snap point,
@@ -381,7 +384,7 @@ revision is what lets `stage.py` accept the update. The tests fail when
 - 擁壁：1.5 m（初期設定）か 3.4 m。全幅のランプと同じです。側道は擁壁の上の外の縁に合わせて外へずれます。
 - 側道：両側に1本ずつ。一方通行で、歩道は外側だけです。笠石とポータル天蓋にぴったり付けて（その下の地面は側道と同じ高さに保ちます）、擁壁とポータル天蓋の脇を、その長さだけまっすぐに延びます。下り坂の始まり（x = 0）から天蓋の終わり（ポータルの 30 m 先。初期設定で 95 m、長さ 40 m で 56 m）までで、ランプの長さ・深さ・勾配カーブ・地面の勾配に合わせて長さが変わります。建設が終わると、ふつうの道路として手放され（両端とも、つなげる端です）、町は側道の外側に建物を建てます。擁壁の側には、区画ができないようにする見えない飾りが付いています。街灯（柱の上に灯りの付いた型。縁石の近く）・消火栓・ごみ箱は歩道の側だけに立ちます。各側道の向きは「通行区分」で決まります。
 - 入口の道：進入路が受け持つ町の道を、車線の数で選びます。**2**（「街道（小）」16 m）と **4**（「街道（中）」24 m、初期設定）は、側道が各1車線（6.5 m：車線 3.5 m、歩道 3 m。入口 4 では全体が「街道（中）」と同じ 24 m）。**6**（「街道（大）」32 m）は、側道が各2車線（11.5 m：4 m × 2、歩道 3.5 m）。中央はどれも各方向1車線です（高速道路では一方通行）。
-- 分かれ目と合流：自分で引きます。道路の端に接続して置いたときは、手前の道路がそこから始まり、側道の手前の端はその 30〜50 m 先（「手前の道路の長さ」）なので、その端から各側道へ S 字の道路を引く余地があります。空き地に置いたときは、手前の道路の始まりと側道の両端が、どれもつなげる端です。手前の道路はふつうの道路なので、撤去して別の形の分かれ目を引くこともできます。
+- 分かれ目と合流：自分で引きます。本当は、4車線の道の前後にそのままきれいにつながる、ひとまとまりの形にしたかったのですが、どうやってもできませんでした。すみませんが、ここは自分で引いてください。道路の端に接続して置いたときは、手前の道路がそこから始まり、側道の手前の端はその 30〜50 m 先（「手前の道路の長さ」）なので、その端から各側道へ S 字の道路を引く余地があります。空き地に置いたときは、手前の道路の始まりと側道の両端が、どれもつなげる端です。手前の道路はふつうの道路なので、撤去して別の形の分かれ目を引くこともできます。
   - 1車線の側道は、道路のメニューにも **側道（片側歩道の一方通行）** としてあります（「街道（小）」の並び、バニラの一方通行の後）。交通の向きに引くと歩道は右になり、右側通行では掘割のどちら側でも外側になります。側道と同じく、左側（歩道の無い側）には建物が建ちません。
   - 傾斜地（地面の勾配のどちらかが 0% でない）では、手前の道路の両脇にも接続点から擁壁と笠石が立ち、接続点からの S 字の通り道をふさぎます。分かれ目は接続点より手前で引くか、手前の道路を撤去してから引いてください（ゲームでは未確認）。
   - 入口 6 の側道は 2 車線です。メニューの側道は 1 車線なので、ふつうの道路でつないでください。
