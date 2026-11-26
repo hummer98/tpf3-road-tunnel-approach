@@ -397,6 +397,23 @@ function M.plan(api, con)
 			notes[#notes + 1] = "edge " .. a.edge .. ": " .. whyNot
 		end
 	end
+	-- Each edge goes in its own proposal, made before the one before it is
+	-- built: two edges at one node would each carry that node's set-up for
+	-- the other's old edge. Only the first of such is laid (not seen: the
+	-- streets of a count lie apart, and only the edge that ends at x = 0
+	-- is an approach).
+	local seenNode, kept = {}, {}
+	for _, e in ipairs(edges) do
+		local shared = false
+		for _, n in ipairs(e.nodes or {}) do if seenNode[n] then shared = true end end
+		if shared then
+			notes[#notes + 1] = "edge " .. e.edge .. " shares a node with another approach edge"
+		else
+			for _, n in ipairs(e.nodes or {}) do seenNode[n] = true end
+			kept[#kept + 1] = e
+		end
+	end
+	edges = kept
 	if #edges == 0 then
 		if #notes > 0 then return nil, table.concat(notes, "; "), true end
 		return nil, "nothing to take off", false
@@ -492,6 +509,9 @@ end
 -- once built is not measured yet (stillBoth logs it when not).
 M.VARIANTS = {
 	{ name = "replace", base = "replace", lanes = "written" },
+	-- (the replacement's set-ups were made for the old lanes, the track on
+	-- both sides: without them the engine makes its own [guess])
+	{ name = "replace-noconfigs", base = "replace", lanes = "written", noConfigs = true },
 	{ name = "fields", base = "fields", lanes = "written", streetEdge = true, look = true },
 	{ name = "fields-plain", base = "fields", lanes = "written", streetEdge = true },
 	{ name = "fields-template", base = "fields", lanes = "template", streetEdge = true, look = true },
@@ -528,7 +548,7 @@ function M.makeProposal(api, plan, opts)
 	-- one edge per proposal, as the game script sends them)
 	if opts.base == "replace" and #plan.edges ~= 1 then error("replaceSegment: one edge per proposal, not " .. #plan.edges) end
 	local proposal = api.type.SimpleProposal.new()
-	local adds, removes, holders, cfgAdd, cfgRemove, cfgSeen = {}, {}, {}, {}, {}, {}
+	local adds, removes, holders, cfgAdd, cfgRemove = {}, {}, {}, {}, {}
 	for k, item in ipairs(plan.edges) do
 		local old = comp(api, item.edge, "BASE_EDGE")
 		if old == nil then error("edge " .. tostring(item.edge) .. " is gone") end
@@ -556,13 +576,14 @@ function M.makeProposal(api, plan, opts)
 			if #list(seg.comp.laneConfigs) ~= #lanes then
 				error("edge " .. item.edge .. ": replaceSegment's segment has " .. #list(seg.comp.laneConfigs) .. " lanes, the edge " .. #lanes)
 			end
-			-- (each node's set-up once: two approaches never share a node, but a count's may meet the engine's twice)
-			for _, c in ipairs(add) do
-				local n = tonumber(try(function() return c.entity end))
-				if not (n and cfgSeen["a" .. n]) then cfgAdd[#cfgAdd + 1] = c; if n then cfgSeen["a" .. n] = true end end
+			-- (the strip lanes are numbered from node0: the same way round)
+			if tonumber(try(function() return seg.comp.node0 end)) ~= tonumber(old.node0)
+				or tonumber(try(function() return seg.comp.node1 end)) ~= tonumber(old.node1) then
+				error("edge " .. item.edge .. ": replaceSegment's segment runs between other nodes or the other way")
 			end
-			for _, n in ipairs(rem) do
-				if not cfgSeen["r" .. tostring(n)] then cfgRemove[#cfgRemove + 1] = n; cfgSeen["r" .. tostring(n)] = true end
+			if not opts.noConfigs then
+				for _, c in ipairs(add) do cfgAdd[#cfgAdd + 1] = c end
+				for _, n in ipairs(rem) do cfgRemove[#cfgRemove + 1] = n end
 			end
 		else
 			seg = api.type.SegmentAndEntity.new()
@@ -617,7 +638,10 @@ function M.makeProposal(api, plan, opts)
 		error(string.format("the proposal holds %d / %d edges to remove / add, not %d", #list(sp.edgesToRemove),
 			#list(sp.edgesToAdd), #adds))
 	end
-	if #list(try(function() return sp.nodeConfigsToAdd end)) ~= #cfgAdd then error("the junction set-ups were not written as asked") end
+	if #list(try(function() return sp.nodeConfigsToAdd end)) ~= #cfgAdd
+		or #list(try(function() return sp.nodeConfigsToRemove end)) ~= #cfgRemove then
+		error("the junction set-ups were not written as asked")
+	end
 	return proposal, removes
 end
 

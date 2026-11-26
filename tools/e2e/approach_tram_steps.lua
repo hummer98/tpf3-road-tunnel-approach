@@ -13,7 +13,9 @@
 -- with the mod's context and with none (critical, messages, costs,
 -- networks made) and makeWorldBuildProposalCmd made but not sent.
 -- A way the engine refuses may log "map_util.h:22 ... Assertion" in the
--- Sim Pool (TC7, TC8: the game went on).
+-- Sim Pool (TC7, TC8: the game went on). Like the game script, it lays the
+-- first approach edge only (one per proposal). The mod's own path in one
+-- piece: approach_tram_send.lua.
 --
 -- __WAY__: one way's name in quotes (one eval per way, so a game that stops
 -- on an assert loses only that way's answer: "replace" first, the game
@@ -29,6 +31,7 @@ local CT = api.type.ComponentType
 local TRY_FIELDS = { "node0", "node1", "tangent0", "tangent1", "type", "typeIndex" }
 local WAYS = {
 	{ name = "replace", base = "replace", lanes = "written" },
+	{ name = "replace-noconfigs", base = "replace", lanes = "written", noConfigs = true },
 	{ name = "replace-same", base = "replace", lanes = "same" },
 	{ name = "fields", base = "fields", lanes = "written", streetEdge = true, look = true },
 	{ name = "fields-plain", base = "fields", lanes = "written", streetEdge = true },
@@ -46,6 +49,9 @@ local out = { construction = CONSTRUCTION, ways = {} }
 local plan, why = tram.plan(api, CONSTRUCTION)
 if not plan then out.stage = "plan: " .. tostring(why); return out end
 out.plan = tram.describe(plan)
+-- (the first approach edge only, one per proposal as the game script sends them)
+plan = { construction = plan.construction, choice = plan.choice, params = plan.params, edges = { plan.edges[1] }, notes = {} }
+out.edge = plan.edges[1].edge
 
 local known = false
 for _, w in ipairs(WAYS) do if WAY == "all" or w.name == WAY then known = true end end
@@ -77,9 +83,21 @@ local function runWay(w)
 		if w.base == "replace" then
 			seg = step(tag .. "replaceSegment", function()
 				local s, add, rem = tram.replacement(api, item.edge)
-				for _, c in ipairs(add) do cfgAdd[#cfgAdd + 1] = c end
-				for _, n in ipairs(rem) do cfgRemove[#cfgRemove + 1] = n end
-				r.replaceConfigs = { add = #add, remove = #rem }
+				if not w.noConfigs then
+					for _, c in ipairs(add) do cfgAdd[#cfgAdd + 1] = c end
+					for _, n in ipairs(rem) do cfgRemove[#cfgRemove + 1] = n end
+				end
+				-- (the set-ups' lane connections, and those with a tram: made
+				-- for the old lanes, the track on both sides)
+				local conns, tramConns = 0, 0
+				for _, c in ipairs(add) do
+					for _, lc in ipairs(tram.list(c.comp and c.comp.laneConnections)) do
+						conns = conns + 1
+						if lc.withTram then tramConns = tramConns + 1 end
+					end
+				end
+				r.replaceConfigs = { add = #add, remove = #rem, laneConnections = conns, withTram = tramConns,
+					node0 = s.comp.node0, node1 = s.comp.node1, oldNode0 = old.node0, oldNode1 = old.node1 }
 				return s
 			end)
 		else

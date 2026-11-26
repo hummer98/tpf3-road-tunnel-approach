@@ -137,7 +137,8 @@ local function fakeApi(world)
 				for k, v in pairs(deep(be)) do seg.comp[k] = v end
 				seg.entity = -1
 				seg.type = 0
-				return { proposal = { addedSegments = { seg }, nodeConfigsToAdd = { { entity = be.node0 }, { entity = be.node1 } },
+				return { proposal = { addedSegments = { seg }, nodeConfigsToAdd = { { entity = be.node0,
+					comp = { laneConnections = { { withTram = true }, { withTram = false } } } }, { entity = be.node1 } },
 					nodeConfigsToRemove = { be.node0, be.node1 } } }
 			end,
 			-- TC8: a new edge given a whole BASE_EDGE raised std::exception
@@ -324,11 +325,17 @@ test("approach tram: plan is quiet on a one-way approach, takes every street of 
 	w.edges[15] = { node0 = 8, node1 = 9, laneConfigs = smallBoth(), roadTemplate = "median_side_r" }
 	local plan = assert(tram.plan(fakeApi(w), 100))
 	eq(#plan.edges, 2, "both approaches"); eq(plan.edges[1].edge, 10, "first"); eq(plan.edges[2].edge, 13, "second")
-	local proposal = tram.makeProposal(fakeApi(w), plan, tram.VARIANTS[2])
+	local proposal = tram.makeProposal(fakeApi(w), plan, tram.VARIANTS[3])
 	assert(same(proposal.streetProposal.edgesToRemove, { 10, 13 }), "a fresh-fields proposal holds both")
 	eq(proposal.streetProposal.edgesToAdd[2].entity, -2, "second new id")
 	-- the engine's replacement: one edge per proposal
 	assert(not pcall(tram.makeProposal, fakeApi(w), plan), "replace refuses two edges")
+	-- two approach edges at one node: only the first is laid, the other noted
+	local w2 = world()
+	w2.edges[16] = { node0 = 2, node1 = 1, laneConfigs = smallBoth(), roadTemplate = COPY_F }
+	local p2 = assert(tram.plan(fakeApi(w2), 100))
+	eq(#p2.edges, 1, "one of the two"); eq(p2.edges[1].edge, 10, "the first")
+	assert(p2.notes[1] and p2.notes[1]:find("shares a node", 1, true), "noted")
 	w.constructions[100].fileName = "road_tunnel_ramp/median.con"
 	plan = assert(tram.plan(fakeApi(w), 100))
 	for _, e in ipairs(plan.edges) do assert(e.edge ~= 15 and e.edge ~= 11 and e.edge ~= 14, "laid again: " .. e.edge) end
@@ -372,12 +379,23 @@ test("approach tram: makeProposal lays the approach again with the other side's 
 	assert(has(lanes[1], "PERSON") and has(lanes[4], "PERSON"), "sidewalks kept")
 	eq(adds[1].playerOwned, nil, "no PLAYER_OWNED (not measured)")
 	eq(adds[1].whole, nil, "the engine's own segment, not given a whole record (TC8)")
+	-- the replacement running the other way round: refused (the strip lanes count from node0)
+	local realReplace = api.engine.util.proposal.replaceSegment
+	api.engine.util.proposal.replaceSegment = function(e)
+		local r = realReplace(e)
+		local seg = r.proposal.addedSegments[1]
+		seg.comp.node0, seg.comp.node1 = seg.comp.node1, seg.comp.node0
+		return r
+	end
+	assert(not pcall(tram.makeProposal, api, plan), "the other way round refused")
+	api.engine.util.proposal.replaceSegment = realReplace
+	eq(#tram.makeProposal(api, plan, tram.VARIANTS[2]).streetProposal.nodeConfigsToAdd, 0, "noconfigs: none")
 	-- the replacement's junction set-ups go with it, as whole lists
 	local sp = proposal.streetProposal
 	eq(#sp.nodeConfigsToAdd, 2, "both nodes' set-ups"); assert(same(sp.nodeConfigsToRemove, { 1, 2 }), "the old ones removed")
 	-- the fields way: every M.FIELDS the edge has, given one by one, and BASE_EDGE_STREET
 	w.edges[10].position0, w.edges[10].tangent0, w.edges[10].typeIndex, w.edges[10].roadType = { x = 1 }, { x = 2 }, 3, 0
-	local pf = tram.makeProposal(api, plan, tram.VARIANTS[2])
+	local pf = tram.makeProposal(api, plan, tram.VARIANTS[3])
 	local sf = pf.streetProposal.edgesToAdd[1]
 	eq(sf.whole, nil, "fields: never whole"); eq(sf.comp.position0.x, 1, "position0"); eq(sf.comp.tangent0.x, 2, "tangent0")
 	eq(sf.comp.typeIndex, 3, "typeIndex"); eq(sf.comp.roadType, 0, "roadType"); eq(sf.comp.node0, 1, "node0")
@@ -385,12 +403,12 @@ test("approach tram: makeProposal lays the approach again with the other side's 
 	-- the world is untouched until the engine builds it
 	assert(w.edges[10].laneConfigs[2].transportModes[TM.TRAM], "world lane 2 still has its track")
 	-- the plain way: the same lanes, no look
-	local pw = tram.makeProposal(api, plan, tram.VARIANTS[3])
+	local pw = tram.makeProposal(api, plan, tram.VARIANTS[4])
 	local lw = pw.streetProposal.edgesToAdd[1].comp.laneConfigs
 	assert(not has(lw[2], "TRAM") and has(lw[2], "CAR") and has(lw[3], "ELECTRIC_TRAM"), "plain: lane 2 off, lane 3 kept")
 	eq(pw.streetProposal.edgesToAdd[1].comp.roadTemplate, nil, "plain: no template name")
 	-- the template way: the copy's lanes (here the same) and look
-	local pt = tram.makeProposal(api, plan, tram.VARIANTS[4])
+	local pt = tram.makeProposal(api, plan, tram.VARIANTS[5])
 	eq(pt.streetProposal.edgesToAdd[1].comp.roadTemplate, COPY_F, "template: the copy's name")
 	eq(pt.streetProposal.edgesToAdd[1].comp.roadStyle, "town_new.street", "template: the copy's style")
 	-- no way gives the comp whole
@@ -425,7 +443,7 @@ test("approach tram: makeProposal raises on a gone edge and on lanes that do not
 		end, __newindex = function() end })
 		return { comp = comp }
 	end
-	local ok, err = pcall(tram.makeProposal, api, plan, tram.VARIANTS[2])
+	local ok, err = pcall(tram.makeProposal, api, plan, tram.VARIANTS[3])
 	assert(not ok and tostring(err):find("not written", 1, true), tostring(err))
 end)
 
@@ -458,7 +476,7 @@ test("approach tram: templateName and templateLanes take the chosen copy only wh
 	eq(tram.templateLanes(api, rev, api.engine.getComponent(10, "BASE_EDGE"), plan.choice, {}), nil, "laid the other way")
 	-- the template way fails there, the written ways come first anyway
 	w.edges[10].roadTemplate = COPY_K
-	assert(not pcall(tram.makeProposal, api, plan, tram.VARIANTS[4]), "the template way refuses the wrong copy")
+	assert(not pcall(tram.makeProposal, api, plan, tram.VARIANTS[5]), "the template way refuses the wrong copy")
 	local p, way = tram.firstPassing(api, plan, {})
 	assert(p, "a way"); eq(way, "replace", "the written way")
 end)
@@ -473,7 +491,7 @@ test("approach tram: left-hand traffic takes the k copy for Right, and a base-ty
 	assert(tl, tostring(name)); eq(name, COPY_K, "k copy")
 	-- the edge typed as the base street: the copy for the choice, named on the new edge
 	w.edges[10].roadTemplate = "::/infrastructure/street/town/town_new_small.street_template"
-	local p = tram.makeProposal(api, plan, tram.VARIANTS[4])
+	local p = tram.makeProposal(api, plan, tram.VARIANTS[5])
 	local c = p.streetProposal.edgesToAdd[1].comp
 	eq(c.roadTemplate, COPY_K, "the copy's name"); eq(c.roadStyle, "town_new.street", "the copy's style")
 	assert(has(c.laneConfigs[2], "TRAM") and not has(c.laneConfigs[3], "TRAM"), "track on lane 2 only")
@@ -493,7 +511,7 @@ test("approach tram: firstPassing tries the ways in order until makeProposalData
 		return { errorState = { critical = false, messages = {} } }
 	end
 	p, way, fails = tram.firstPassing(api, plan, {})
-	assert(p, "taken"); eq(way, "fields-plain", "the third way"); eq(#fails, 2, "two fails")
+	assert(p, "taken"); eq(way, "fields", "the third way"); eq(#fails, 2, "two fails")
 	assert(fails[1]:find("std::exception", 1, true), fails[1])
 	-- critical on all: none taken, every way's why
 	api.engine.util.proposal.makeProposalData = function() return { errorState = { critical = true, messages = { "Collision" } } } end
@@ -617,7 +635,7 @@ test("approach tram script: Both, a refused build, other mods' builds and a miss
 	end
 	run(d.handleEvent, {}, newState(), "", tram.EVENT_ID, tram.EVENT_NAME, { construction = 100 })
 	eq(#fapi.sent, 1, "sent the second way"); eq(#lines, 1, "one line")
-	assert(lines[1]:find('"fields" way', 1, true), lines[1])
+	assert(lines[1]:find('"replace-noconfigs" way', 1, true), lines[1])
 	-- the engine takes the first way, but its command raises: the next way is sent
 	d, fapi, newState, run, lines = scriptWith(world())
 	local made = 0
@@ -629,7 +647,7 @@ test("approach tram script: Both, a refused build, other mods' builds and a miss
 	end
 	run(d.handleEvent, {}, newState(), "", tram.EVENT_ID, tram.EVENT_NAME, { construction = 100 })
 	eq(#fapi.sent, 1, "the second way sent"); eq(#lines, 1, "one line")
-	assert(lines[1]:find('"fields" way', 1, true) and lines[1]:find("not sent", 1, true), lines[1])
+	assert(lines[1]:find('"replace-noconfigs" way', 1, true) and lines[1]:find("not sent", 1, true), lines[1])
 end)
 
 test("approach tram script: two streets (count 2) go as two proposals, each the engine's replacement", function()
@@ -705,10 +723,10 @@ test("approach tram e2e steps script: every way's steps, the first that raised, 
 	assert(okOne, tostring(one)); eq(#one.ways, 1, "one way asked"); eq(one.ways[1].way, "fields", "that one")
 	assert(okBad, tostring(bad)); assert(bad.stage:find("no way named", 1, true), bad.stage)
 	assert(ok, tostring(out))
-	eq(#out.ways, 11, "eleven ways"); eq(#fapi.sent, 0, "nothing sent")
+	eq(#out.ways, 12, "twelve ways"); eq(#fapi.sent, 0, "nothing sent")
 	local by = {}
 	for _, r in ipairs(out.ways) do by[r.way] = r end
-	for _, name in ipairs({ "replace", "replace-same", "fields", "fields-plain", "fields-template", "fields-objects", "try-whole-lists" }) do
+	for _, name in ipairs({ "replace", "replace-noconfigs", "replace-same", "fields", "fields-plain", "fields-template", "fields-objects", "try-whole-lists" }) do
 		eq(by[name].failedAt, nil, name .. ": every step done (" .. tostring(by[name].error) .. ")")
 		eq(by[name]["makeProposalData(context)"].critical, false, name .. " taken")
 		eq(by[name]["makeProposalData(nil)"].critical, false, name .. " taken without the context")
@@ -717,6 +735,8 @@ test("approach tram e2e steps script: every way's steps, the first that raised, 
 	end
 	eq(by["replace"].held.configsAdd, 2, "replace: its two nodes' set-ups"); eq(by["replace"].held.configsRemove, 2, "and their old ones")
 	eq(by["replace"].replaceConfigs.add, 2, "replaceSegment's set-ups read")
+	eq(by["replace"].replaceConfigs.withTram, 1, "the set-ups' connections with a tram counted")
+	eq(by["replace-noconfigs"].held.configsAdd, 0, "noconfigs: no set-ups sent")
 	eq(by["fields"].held.configsAdd, 0, "fields: no set-ups")
 	eq(by["fields-template"].template, COPY_F, "template named"); eq(by["fields"].look, COPY_F, "the edge's look")
 	eq(by["replace"].lanesBack[2].modes, "CAR BUS TRUCK", "lane 2 read back without track")
