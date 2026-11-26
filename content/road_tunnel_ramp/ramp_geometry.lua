@@ -235,29 +235,40 @@ function M.tramRef(ref, lanes, power)
 	return TRAM_DIR .. stem .. "_" .. lanes .. "_" .. (power or "etram") .. ".street_template"
 end
 
--- The edges' tramTrackType with a track, by their part. In game
--- [measured 2026-11-26 TC5, tf3ctl lanes] the descent's copies
--- (ramp_descent_*: no sidewalk lanes) carried their TRAM lanes as written
--- with no tramTrackType, while the approach's and the runout's copies (of
--- the base streets) carried none: tramLanes [] on edges of the copy's type.
--- Why is not known [guess: the game takes a street's tram lanes from the
--- edge's tramTrackType when it is NO on such streets]. Another mod lays its
--- tram copies (TRAM in the lanes) with tramTrackType YES / ELECTRIC as well,
--- noting that without it trams ran with no rails drawn [source: Industry
--- Tram Access, mod.io 6428712, geometry.lua]; and a road's tramTrackType
--- track goes on one lane each way, set by busAndTramRight [source: PYT
--- pack, mod.io 6441212, its notes P499 / P500], which may not be the one
--- the copy carries (Right / Left). rtr_tram_edge (not in the menu) lets the
--- e2e compare at one sitting:
---   0 none on any edge (the TC5 build)
---   1 on the approach and the runout (initial: where the track was missing)
---   2 on every edge
--- YES without catenary, ELECTRIC with it.
-function M.tramEdgeTypes(mode, power)
+-- The edges' tramTrackType and the runout's street with a track, by
+-- part. In game [measured 2026-11-26 TC5, tf3ctl lanes] the descent's
+-- copies (ramp_descent_*: 0.5m shoulders that carry nothing) kept their
+-- TRAM lanes as written with no tramTrackType, while the copies of the
+-- base streets with sidewalks on the approach and the runout kept none:
+-- tramLanes [] on edges of the copy's type. A guess that fits both: the
+-- game lays a street's tramTrackType track on the outermost lane that is
+-- not a footway [source: PYT pack, mod.io 6441212, its note P500, seen in
+-- its game] and sets those lanes by tramTrackType, NO taking the track off:
+-- with sidewalks those are the outer car lanes (the copy's track goes),
+-- with bare shoulders the shoulders (the copy's track stays). The edges'
+-- tramTrackType put the track on the outer lane of both directions and on
+-- no tunnel edge [measured 2026-11-23 PT E1].
+-- So, initially: the runout is laid as the descent's copy (no sidewalks,
+-- as the descent that kept its track, the tunnel part too [guess: TC5
+-- read one descent edge]; with a track it was a copy of the mod anyway,
+-- so the tunnel laid on from it is another type either way), the approach
+-- of a street with sidewalks gets tramTrackType [guess: Both then holds;
+-- Right / Left may come out on both directions there, PT E1], the others
+-- none. rtr_tram_edge (not in the menu) lets the e2e compare at one
+-- sitting:
+--   0 none, the runout the street's copy (the TC5 build)
+--   1 initial, as above
+--   2 on every edge, the runout the descent's copy
+--   3 on the approach and the runout, the runout the street's copy (5e64abf)
+-- YES without catenary, ELECTRIC with it. sidewalks: the chosen street has
+-- footways (cap.streets[].sidewalks). runoutDescent: lay the runout as the
+-- descent's copy.
+function M.tramEdgeTypes(mode, power, sidewalks)
 	local t = power == "tram" and "YES" or "ELECTRIC"
 	if mode == 0 then return {} end
-	if mode == 2 then return { approach = t, descent = t, runout = t } end
-	return { approach = t, runout = t }
+	if mode == 2 then return { approach = t, descent = t, runout = t, runoutDescent = true } end
+	if mode == 3 then return { approach = t, runout = t } end
+	return { approach = sidewalks and t or nil, runoutDescent = true }
 end
 
 -- The copies' lanes for rtr_tram (1-4), the traffic side (1 right-hand, 2
@@ -322,7 +333,7 @@ function M.spec(cap, p)
 	-- (the e2e's stand-ins have no tram copies: no track on them)
 	local tramLanes = not street.variant and M.tramLanes(math.floor(value(p, "rtr_tram", 1, 1, 4) + 0.5), side, street.oneWay) or nil
 	local tramPower = M.TRAM_POWER[math.floor(value(p, "rtr_tram_wire", 1, 1, 2) + 0.5)]
-	local tramEdge = math.floor(value(p, "rtr_tram_edge", 1, 0, 2) + 0.5)
+	local tramEdge = math.floor(value(p, "rtr_tram_edge", 1, 0, 3) + 0.5)
 	-- 0.5 and up rounds to 1, the threshold the 0 / 1 switch had.
 	local approachMode = math.floor(value(p, "rtr_approach_hand_over", 1, 0, 2) + 0.5)
 	return {
@@ -664,7 +675,8 @@ function M.build(s)
 	-- The edges' tramTrackType with a track (M.tramEdgeTypes): nil leaves
 	-- it out, as every edge had it out before.
 	local tramTT = { approach = nil, descent = nil, runout = nil }
-	if s.tramLanes then tramTT = M.tramEdgeTypes(s.tramEdge, s.tramPower) end
+	if s.tramLanes then tramTT = M.tramEdgeTypes(s.tramEdge, s.tramPower, s.street.sidewalks) end
+	local runoutRef = tramTT.runoutDescent and descentRef or streetRef
 	local edgeTT = nil
 	local tunnelRef = s.tunnelRef
 	local L, D, count, approach, runout = g.L, g.D, g.count, g.approach, g.runout
@@ -801,7 +813,7 @@ function M.build(s)
 			)
 		end
 		-- Underground runout, so the player's own tunnel can snap to the end.
-		edgeRef, edgeTT = streetRef, tramTT.runout
+		edgeRef, edgeTT = runoutRef, tramTT.runout
 		for i = 0, segN - 1 do
 			local a, b = L + runout * i / segN, L + runout * (i + 1) / segN
 			edge(

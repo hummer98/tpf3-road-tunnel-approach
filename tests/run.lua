@@ -5602,25 +5602,51 @@ do
 		return "descent"
 	end
 
-	test("tram: rtr_tram_edge (e2e only) puts tramTrackType on none, the approach and runout (initial), or every edge; the types and lanes stay", function()
-		for _, i in ipairs({ 3, 4, 6, 8 }) do
+	-- What an edge of each part gets with a track under rtr_tram_edge mode
+	-- (ramp_geometry M.tramEdgeTypes): its tramTrackType (t or nil), and
+	-- for the runout whether it is the descent's copy.
+	local function tramExpect(mode, role, street, t)
+		local tt
+		if mode == 2 then tt = t
+		elseif mode == 3 then tt = role ~= "descent" and t or nil
+		elseif mode == 1 then tt = (role == "approach" and street.sidewalks) and t or nil end
+		return tt, (mode == 1 or mode == 2)
+	end
+
+	test("tram: sidewalks marks exactly the streets whose template has footways (PERSON lanes)", function()
+		for i = 1, 8 do
+			local st = cap.streets[i]
+			local t = st.ref:find("^road_tunnel_ramp::") and templateOf(st.ref) or sourceTemplate(st.ref)
+			if t then
+				local walk = false
+				for _, lane in ipairs(t.laneConfigs) do if hasMode(lane, "PERSON") then walk = true end end
+				eq(st.sidewalks == true, walk, "entry " .. i)
+			end
+		end
+		for n, c in pairs(medianGeo.CENTRES) do eq(c.sidewalks, cap.streets[n].sidewalks, "centre " .. n) end
+	end)
+
+	test("tram: rtr_tram_edge (e2e only): tramTrackType by part and the runout's street per mode; the lanes stay", function()
+		for _, i in ipairs({ 1, 3, 4, 6, 8 }) do
 			for _, wire in ipairs({ 1, 2 }) do
 				local want = wire == 1 and "ELECTRIC" or "YES"
+				local street = cap.streets[i]
 				local base = script.updateFn(cap, { rtr_street = i, rtr_tram = 3, rtr_tram_wire = wire })
-				for mode = 0, 2 do
+				for mode = 0, 3 do
 					local p = { rtr_street = i, rtr_tram = 3, rtr_tram_wire = wire, rtr_tram_edge = mode }
 					local r = script.updateFn(cap, p)
 					local seen = {}
 					for k, e in ipairs(r.edgeLists) do
 						local role = roleOf(e, 100)
 						seen[role] = true
-						local tt = nil
-						if mode == 2 or (mode == 1 and role ~= "descent") then tt = want end
+						local tt, runoutDescent = tramExpect(mode, role, street, want)
 						local tag = string.format("street %d wire %d mode %d edge %d (%s)", i, wire, mode, k, role)
 						eq(e.params.tramTrackType, tt, tag)
-						-- the type is the same copy whatever the mode, and that
-						-- copy has the track on the lane asked for (right: f)
-						eq(e.params.type, base.edgeLists[k].params.type, tag .. " type")
+						-- the street the edge is laid with: the runout the
+						-- descent's copy in modes 1 and 2, the street's otherwise
+						local src = (role == "approach" or (role == "runout" and not runoutDescent)) and street.ref
+							or (street.descent and street.descent.ref or street.ref)
+						eq(e.params.type, geometry.tramRef(src, "f", wire == 1 and "etram" or "tram"), tag .. " type")
 						assert(e.params.type:find("streets/tram_", 1, true), tag .. " a tram copy: " .. e.params.type)
 						local t = templateOf(e.params.type)
 						local cars = carLanes(t)
@@ -5635,8 +5661,10 @@ do
 				assert(ok, why)
 			end
 		end
-		-- no track: no tramTrackType whatever the mode
-		for mode = 0, 2 do
+		-- no track: no tramTrackType and the streets as they were, whatever the mode
+		for mode = 0, 3 do
+			local ok, why = sameValue(script.updateFn(cap, { rtr_tram_edge = mode }), script.updateFn(cap, {}), "no track, mode " .. mode)
+			assert(ok, why)
 			for _, e in ipairs(script.updateFn(cap, { rtr_tram_edge = mode }).edgeLists) do eq(e.params.tramTrackType, nil, "no track") end
 		end
 	end)
@@ -5667,13 +5695,16 @@ do
 								local tag = string.format("street %d count %d side %d dir %d tram %d wire %d", i, count, side, direction, tram, wire)
 								local places = {}
 								for k, e in ipairs(r.edgeLists) do
-									-- initially (rtr_tram_edge 1) the approach and the
-									-- runout get tramTrackType with a track, the descent none
+									-- initially (rtr_tram_edge 1) only the approach of a
+									-- street with footways gets tramTrackType with a track
 									local role = roleOf(e, 100)
 									local wantTT = nil
-									if lanes and role ~= "descent" then wantTT = wire == 1 and "ELECTRIC" or "YES" end
+									if lanes then wantTT = tramExpect(1, role, street, wire == 1 and "ELECTRIC" or "YES") end
 									eq(e.params.tramTrackType, wantTT, tag .. " edge " .. k .. " (" .. role .. ") tramTrackType")
-									local want = geometry.tramRef(expectedRefOf(e, street, 100), lanes, power)
+									-- (with a track the runout is the descent's copy, rtr_tram_edge 1)
+									local srcRef = expectedRefOf(e, street, 100)
+									if lanes and role == "runout" and street.descent then srcRef = street.descent.ref end
+									local want = geometry.tramRef(srcRef, lanes, power)
 									eq(e.params.type, want, tag .. " edge " .. k)
 									local own = e.params.type:find("^road_tunnel_ramp::")
 									if not lanes then

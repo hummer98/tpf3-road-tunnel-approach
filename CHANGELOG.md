@@ -18,7 +18,7 @@ The first public release is 1.0.0 (`revision` 10000).
   lane follows Traffic side). Catenary Yes (initial setting) or No, for
   trams that need no wire. On a one-way highway Both is its outer lane. On
   the Median Tunnel Approach the centre gets the track, the side streets
-  none. With a track the tunnel stub is this mod's copy of the street, so a
+  none. With a track the tunnel stub is a tram copy of the descent's street, so a
   tunnel laid on from it is another type.
 
 ### Changed

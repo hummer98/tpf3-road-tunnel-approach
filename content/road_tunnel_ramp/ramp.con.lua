@@ -273,21 +273,22 @@ return {
 			-- it takes off goes to the walls, whose outer edge stays put
 			-- (ramp_geometry.lua M.descentWall). The flat approach and the
 			-- 30m stub keep ref. None on the cars-only entry: it has no
-			-- sidewalk to take off.
+			-- sidewalk to take off. sidewalks: ref has footways (PERSON
+			-- lanes), read for the tram track (ramp_geometry M.tramEdgeTypes).
 			streets = {
 				{ ref = "::/infrastructure/street/highway/highway_new_small.street_template",  width = 9, oneWay = true,
 				  descent = { ref = "road_tunnel_ramp::/road_tunnel_ramp/streets/ramp_descent_highway_small.street_template", width = 6 } },
-				{ ref = "::/infrastructure/street/country/country_new_small.street_template",  width = 14,
+				{ ref = "::/infrastructure/street/country/country_new_small.street_template",  width = 14, sidewalks = true,
 				  descent = { ref = "road_tunnel_ramp::/road_tunnel_ramp/streets/ramp_descent_country_small.street_template", width = 11 } },
-				{ ref = "::/infrastructure/street/town/town_new_small.street_template",       width = 16,
+				{ ref = "::/infrastructure/street/town/town_new_small.street_template",       width = 16, sidewalks = true,
 				  descent = { ref = "road_tunnel_ramp::/road_tunnel_ramp/streets/ramp_descent_town_small.street_template", width = 11 } },
 				{ ref = "::/infrastructure/street/highway/highway_new_medium.street_template", width = 18, oneWay = true,
 				  descent = { ref = "road_tunnel_ramp::/road_tunnel_ramp/streets/ramp_descent_highway_medium.street_template", width = 11 } },
-				{ ref = "::/infrastructure/street/country/country_new_medium.street_template", width = 22,
+				{ ref = "::/infrastructure/street/country/country_new_medium.street_template", width = 22, sidewalks = true,
 				  descent = { ref = "road_tunnel_ramp::/road_tunnel_ramp/streets/ramp_descent_country_medium.street_template", width = 19 } },
-				{ ref = "::/infrastructure/street/town/town_new_medium.street_template",      width = 24,
+				{ ref = "::/infrastructure/street/town/town_new_medium.street_template",      width = 24, sidewalks = true,
 				  descent = { ref = "road_tunnel_ramp::/road_tunnel_ramp/streets/ramp_descent_town_medium.street_template", width = 19 } },
-				{ ref = "::/infrastructure/street/town/town_new_large.street_template",       width = 32,
+				{ ref = "::/infrastructure/street/town/town_new_large.street_template",       width = 32, sidewalks = true,
 				  descent = { ref = "road_tunnel_ramp::/road_tunnel_ramp/streets/ramp_descent_town_large.street_template", width = 27 } },
 				-- Two lanes (one each way), no sidewalk, offered as a cars-only
 				-- ramp (user: 「一旦歩道ありはそのまま置いておいて、「歩道無し」版の

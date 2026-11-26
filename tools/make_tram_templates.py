@@ -191,6 +191,9 @@ def outputs(street_zip=STREET_ZIP, with_base=True):
 
 
 def main(argv):
+    if "-h" in argv or "--help" in argv:
+        print(__doc__)
+        return 0
     check = "--check" in argv
     args = [a for a in argv if a != "--check"]
     street_zip = args[0] if args else STREET_ZIP

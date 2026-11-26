@@ -36,9 +36,9 @@ local TOWN = "::/infrastructure/street/town/"
 M.CENTRES = {
 	[1] = { ref = "::/infrastructure/street/highway/highway_new_small.street_template", width = 9, oneWay = true,
 	        descent = { ref = STREETS .. "ramp_descent_highway_small.street_template", width = 6 } },
-	[2] = { ref = "::/infrastructure/street/country/country_new_small.street_template", width = 14,
+	[2] = { ref = "::/infrastructure/street/country/country_new_small.street_template", width = 14, sidewalks = true,
 	        descent = { ref = STREETS .. "ramp_descent_country_small.street_template", width = 11 } },
-	[3] = { ref = TOWN .. "town_new_small.street_template", width = 16,
+	[3] = { ref = TOWN .. "town_new_small.street_template", width = 16, sidewalks = true,
 	        descent = { ref = STREETS .. "ramp_descent_town_small.street_template", width = 11 } },
 	[8] = { ref = STREETS .. "ramp_car_only.street_template", width = 8,
 	        variants = {
