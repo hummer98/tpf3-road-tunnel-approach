@@ -19,7 +19,7 @@
 --    C4].
 -- 3. handleEvent, rtr_approach_tram: finds the approach edges, asks the
 --    engine (makeProposalData) about the ways of laying them again in turn
---    (approach_tram.lua M.VARIANTS: TC7's first way raised there), and sends
+--    (approach_tram.lua M.VARIANTS: TC7 and TC8 found which way it takes), and sends
 --    the first it takes as one SimpleProposal (edgesToRemove / edgesToAdd), with
 --    a callback that logs a refusal [measured C3: a callback from
 --    handleEvent goes through].
@@ -149,7 +149,7 @@ local function lay(param)
 	end
 	for _, note in ipairs(plan.notes) do log("construction " .. con .. ": " .. note .. " (left as it is)") end
 	-- (the ways of laying it again, in order, until the engine takes one:
-	-- approach_tram.lua M.VARIANTS; TC7's first way raised in the engine)
+	-- approach_tram.lua M.VARIANTS; whole records raised in the engine, TC7, TC8)
 	local what = tram.describe(plan)
 	local context = tram.context(api)
 	local proposal, way, fails, k = tram.firstPassing(api, plan, context)

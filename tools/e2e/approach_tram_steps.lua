@@ -1,8 +1,11 @@
 -- e2e (tf3ctl eval --write --gs, test saves only; sends nothing): where the
 -- approach's lay-again breaks, step by step. For each way of building it
--- (WAYS below: the edge laid again unchanged, with a template's lanes, with
--- the lanes written mode by mode; each bare, and with BASE_EDGE_STREET and
--- PLAYER_OWNED copied) every assignment and call runs in its own pcall; the
+-- (WAYS below: the new edge's comp given the old BASE_EDGE whole, which
+-- raised in TC7 and TC8, kept for contrast; or its fields one by one
+-- (approach_tram.lua M.FIELDS, taken in TC8), with the lanes unchanged,
+-- written mode by mode or a template's, and with or without the look,
+-- objects, BASE_EDGE_STREET and PLAYER_OWNED) every assignment and call
+-- runs in its own pcall; the
 -- answer gives, per way, the steps done and the first that raised, then the
 -- engine's verdict: makeProposalData with the mod's context and with none,
 -- and makeWorldBuildProposalCmd made but not sent (TC7 raised in it).
@@ -10,9 +13,10 @@
 -- Sim Pool (TC7: the game went on).
 --
 -- __WAY__: one way's name in quotes (one eval per way, so a game that stops
--- on an assert loses only that way's answer: "same-bare" first), or "all".
+-- on an assert loses only that way's answer: "fields" first, the game
+-- script's), or "all" (the "whole-*" ways raise in the engine: TC8).
 --
---   sed -e 's/__CONSTRUCTION__/23456/' -e 's/__WAY__/"same-bare"/' tools/e2e/approach_tram_steps.lua > "$SCRATCH/steps.lua"
+--   sed -e 's/__CONSTRUCTION__/23456/' -e 's/__WAY__/"fields"/' tools/e2e/approach_tram_steps.lua > "$SCRATCH/steps.lua"
 --   python3 .../tf3ctl.py --owner mod-keeper eval --write --gs --file "$SCRATCH/steps.lua"
 local CONSTRUCTION = __CONSTRUCTION__
 local WAY = __WAY__
@@ -20,12 +24,12 @@ local WAY = __WAY__
 local tram = require "road_tunnel_ramp::/road_tunnel_ramp/approach_tram.lua"
 local CT = api.type.ComponentType
 local WAYS = {
-	{ name = "same-bare", lanes = "same" },
-	{ name = "same", lanes = "same", streetEdge = true, playerOwned = true },
-	{ name = "template-bare", lanes = "template" },
-	{ name = "template", lanes = "template", streetEdge = true, playerOwned = true },
-	{ name = "written-bare", lanes = "written" },
-	{ name = "written", lanes = "written", streetEdge = true, playerOwned = true },
+	{ name = "fields", lanes = "written", streetEdge = true, objects = true, look = true },
+	{ name = "fields-plain", lanes = "written", streetEdge = true, objects = true },
+	{ name = "fields-template", lanes = "template", streetEdge = true, objects = true, look = true },
+	{ name = "fields-same", lanes = "same", streetEdge = true, objects = true, look = true },
+	{ name = "fields-owned", lanes = "written", streetEdge = true, objects = true, look = true, playerOwned = true },
+	{ name = "whole-same", whole = true, lanes = "same" },
 }
 
 local out = { construction = CONSTRUCTION, ways = {} }
@@ -63,13 +67,25 @@ for _, w in ipairs(WAYS) do
 		local seg = step(tag .. "SegmentAndEntity.new", function() return api.type.SegmentAndEntity.new() end)
 		step(tag .. "seg.entity = -" .. k, function() seg.entity = -k end)
 		step(tag .. "seg.type = 0", function() seg.type = 0 end)
-		step(tag .. "seg.comp = old", function() seg.comp = old end)
+		if w.whole then
+			step(tag .. "seg.comp = old", function() seg.comp = old end)
+		else
+			for _, f in ipairs(tram.FIELDS) do
+				step(tag .. "seg.comp." .. f, function()
+					local v = old[f]
+					if v ~= nil then seg.comp[f] = v end
+				end)
+			end
+		end
+		local lookName, lookStyle
+		step(tag .. "old.roadTemplate / roadStyle", function() lookName, lookStyle = old.roadTemplate, old.roadStyle end)
 		local lanes = step(tag .. "lanes (" .. w.lanes .. ")", function()
 			if w.lanes == "same" then return tram.list(old.laneConfigs) end
 			if w.lanes == "template" then
-				local tl, name = tram.templateLanes(api, item, old, plan.choice, plan.params or {})
+				local tl, name, style = tram.templateLanes(api, item, old, plan.choice, plan.params or {})
 				assert(tl, name)
 				r.template = name
+				lookName, lookStyle = name, style or lookStyle
 				return tl
 			end
 			local strip = {}
@@ -79,6 +95,19 @@ for _, w in ipairs(WAYS) do
 			return nl
 		end)
 		step(tag .. "seg.comp.laneConfigs = lanes", function() seg.comp.laneConfigs = lanes end)
+		if w.look then
+			step(tag .. "seg.comp.roadTemplate / roadStyle", function()
+				if lookName ~= nil then seg.comp.roadTemplate = lookName end
+				if lookStyle ~= nil then seg.comp.roadStyle = lookStyle end
+				r.look = tostring(lookName)
+			end)
+		end
+		if w.objects then
+			step(tag .. "seg.comp.objects", function()
+				local o = old.objects
+				if o ~= nil then seg.comp.objects = o end
+			end)
+		end
 		step(tag .. "lanes read back", function()
 			local back = tram.list(seg.comp.laneConfigs)
 			assert(#back == #lanes, #back .. " lanes back of " .. #lanes)
@@ -104,8 +133,9 @@ for _, w in ipairs(WAYS) do
 		adds[k], removes[k] = seg, item.edge
 	end
 	local proposal = step("SimpleProposal.new", function() return api.type.SimpleProposal.new() end)
-	step("edgesToRemove", function() proposal.streetProposal.edgesToRemove = removes end)
-	step("edgesToAdd", function() proposal.streetProposal.edgesToAdd = adds end)
+	-- (by index, as TC8's try.lua)
+	step("edgesToRemove", function() for k, e in ipairs(removes) do proposal.streetProposal.edgesToRemove[k] = e end end)
+	step("edgesToAdd", function() for k, seg in ipairs(adds) do proposal.streetProposal.edgesToAdd[k] = seg end end)
 	-- The three asks each run on their own, whatever went before them
 	-- (whether the mod's context is the cause is one of the questions),
 	-- once the proposal is whole.

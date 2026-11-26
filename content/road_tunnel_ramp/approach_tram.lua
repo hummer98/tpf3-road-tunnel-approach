@@ -39,10 +39,9 @@
 -- and written as a list of 16 booleans in the enum's order on a copy of the
 -- lane read out of a fresh segment, and read back, as Lane tools does
 -- [source: roads/lanes.lua ownLane, made]; the order is type.d.tl's.
--- That way raised std::exception in the engine in TC7 [measured
--- 2026-11-26], so it is tried after the copy template's laneConfigs (the
--- track on the chosen lane only, as electrify.tl takes a template's):
--- M.VARIANTS, M.firstPassing.
+-- The new edge gets the old one's fields one by one, not its whole
+-- BASE_EDGE: that raised std::exception in the engine (TC7, TC8
+-- [measured 2026-11-26]; M.VARIANTS, M.firstPassing).
 --
 -- Nothing is done (the track stays on both sides) when: Tram track is not
 -- Right or Left, the approach is kept in the construction (the e2e's
@@ -469,50 +468,58 @@ function M.templateLanes(api, item, old, choice, params)
 end
 
 -- The ways to lay an approach again, tried in this order (M.firstPassing)
--- until the engine's makeProposalData takes one. TC7 [measured
--- 2026-11-26]: the lanes written mode by mode ("written") with
--- BASE_EDGE_STREET and PLAYER_OWNED copied raised std::exception in
--- makeWorldBuildProposalCmd and makeProposalData, with "map_util.h:22 Get:
--- Assertion it != map.end()" in the Sim Pool, while electrify.tl's way
--- (the edge's own BASE_EDGE, a template's laneConfigs, nothing else) is
--- the base game's [source]. Which part the engine refused is not known
--- yet [guess]; tools/e2e/approach_tram_steps.lua asks each part apart.
+-- until the engine's makeProposalData takes one.
+-- TC7 / TC8 [measured 2026-11-26]: every proposal whose new edge got the
+-- old one's whole BASE_EDGE (seg.comp = old, as electrify.tl and Lane
+-- tools do) raised std::exception in makeProposalData and
+-- makeWorldBuildProposalCmd ("map_util.h:22 Get: Assertion it !=
+-- map.end()" in the Sim Pool), with the lanes unchanged too, in the game
+-- script and the GUI alike. A fresh segment's comp given node0, node1,
+-- tangent0, tangent1, type and typeIndex one by one was taken (critical
+-- false), with BASE_EDGE_STREET, the old laneConfigs or objects added as
+-- well (TC8 try.lua). So every way here gives the fields one by one; they
+-- differ in the lanes and in what else goes with them: "fields" the lanes
+-- written (the strip lanes' track off) and the edge's template name and
+-- style (look); "fields-plain" the same without the look (whether the name
+-- and style are taken is not measured [guess]); "fields-template" the
+-- lanes of this mod's tram copy for the choice (M.templateLanes) with its
+-- look. Whether the engine keeps the written lanes once built is not
+-- measured yet (stillBoth logs it when not).
 M.VARIANTS = {
-	{ name = "template", lanes = "template", streetEdge = true, playerOwned = true },
-	{ name = "template-bare", lanes = "template" },
-	{ name = "written-bare", lanes = "written" },
-	{ name = "written", lanes = "written", streetEdge = true, playerOwned = true },
+	{ name = "fields", lanes = "written", streetEdge = true, objects = true, look = true },
+	{ name = "fields-plain", lanes = "written", streetEdge = true, objects = true },
+	{ name = "fields-template", lanes = "template", streetEdge = true, objects = true, look = true },
 }
 
+-- The BASE_EDGE fields given to the new edge one by one (TC8: these were
+-- taken; the whole record raised).
+M.FIELDS = { "node0", "node1", "tangent0", "tangent1", "type", "typeIndex" }
+
 -- The proposal that lays each planned edge again with the track only on
--- the chosen side: the edge's own BASE_EDGE (nodes, curve, template,
--- style) with laneConfigs as opts.lanes says: "template"
--- (M.templateLanes), "written" (its own, the strip lanes' track modes
--- written off, as Lane tools writes a lane) or "same" (unchanged, only for
--- the e2e's checks); with opts.streetEdge / opts.playerOwned its
--- BASE_EDGE_STREET / PLAYER_OWNED copied, as Lane tools does. opts nil is
--- the first of M.VARIANTS. Returns the proposal and the old edges, or
--- raises.
+-- the chosen side: a fresh segment whose comp gets the old edge's
+-- M.FIELDS one by one and laneConfigs as opts.lanes says: "written" (the
+-- old ones, the strip lanes' track modes written off, as Lane tools
+-- writes a lane), "template" (M.templateLanes) or "same" (unchanged, for
+-- the e2e's checks); opts.look its roadTemplate and roadStyle (the
+-- template's with "template"), opts.objects its objects, opts.streetEdge /
+-- opts.playerOwned its BASE_EDGE_STREET / PLAYER_OWNED. opts nil is the
+-- first of M.VARIANTS. Returns the proposal and the old edges, or raises.
 function M.makeProposal(api, plan, opts)
 	opts = opts or M.VARIANTS[1]
 	local proposal = api.type.SimpleProposal.new()
-	local adds, removes, holders = {}, {}, {}
+	local removes, holders = {}, {}
 	for k, item in ipairs(plan.edges) do
 		local old = comp(api, item.edge, "BASE_EDGE")
 		if old == nil then error("edge " .. tostring(item.edge) .. " is gone") end
 		local strip = {}
 		for _, i in ipairs(item.strip) do strip[i] = true end
 		local lanes = list(old.laneConfigs)
-		local newLanes, template
+		local newLanes
+		local lookName, lookStyle = try(function() return old.roadTemplate end), try(function() return old.roadStyle end)
 		if opts.lanes == "template" then
-			local tl, why, style = M.templateLanes(api, item, old, plan.choice, plan.params or {})
-			if not tl then error("edge " .. item.edge .. ": " .. tostring(why)) end
-			newLanes = tl
-			-- (a copy other than the edge's own type: its name and style go
-			-- with its lanes, as electrify.tl writes both)
-			if why ~= tostring(try(function() return old.roadTemplate end)) then
-				template = { name = why, style = style }
-			end
+			local tl, name, style = M.templateLanes(api, item, old, plan.choice, plan.params or {})
+			if not tl then error("edge " .. item.edge .. ": " .. tostring(name)) end
+			newLanes, lookName, lookStyle = tl, name, style or lookStyle
 		elseif opts.lanes == "same" then
 			newLanes = lanes
 		else
@@ -524,11 +531,18 @@ function M.makeProposal(api, plan, opts)
 		local seg = api.type.SegmentAndEntity.new()
 		seg.entity = -k
 		seg.type = 0
-		seg.comp = old
+		for _, f in ipairs(M.FIELDS) do
+			local v = old[f]
+			if v ~= nil then seg.comp[f] = v end
+		end
 		seg.comp.laneConfigs = newLanes
-		if template then
-			seg.comp.roadTemplate = template.name
-			if template.style ~= nil then seg.comp.roadStyle = template.style end
+		if opts.look then
+			if lookName ~= nil then seg.comp.roadTemplate = lookName end
+			if lookStyle ~= nil then seg.comp.roadStyle = lookStyle end
+		end
+		if opts.objects then
+			local objs = try(function() return old.objects end)
+			if objs ~= nil then seg.comp.objects = objs end
 		end
 		local back = list(seg.comp.laneConfigs)
 		if #back ~= #lanes then error("edge " .. item.edge .. ": the lanes were not written as asked") end
@@ -551,11 +565,11 @@ function M.makeProposal(api, plan, opts)
 			local owned = comp(api, item.edge, "PLAYER_OWNED")
 			if owned ~= nil then seg.playerOwned = owned end
 		end
-		adds[k] = seg
+		-- (by index into the proposal's own lists, as TC8's try.lua did)
+		proposal.streetProposal.edgesToRemove[k] = item.edge
+		proposal.streetProposal.edgesToAdd[k] = seg
 		removes[k] = item.edge
 	end
-	proposal.streetProposal.edgesToRemove = removes
-	proposal.streetProposal.edgesToAdd = adds
 	return proposal, removes
 end
 
