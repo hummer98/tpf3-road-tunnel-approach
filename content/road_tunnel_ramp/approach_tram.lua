@@ -39,8 +39,9 @@
 -- and written as a list of 16 booleans in the enum's order on a copy of the
 -- lane read out of a fresh segment, and read back, as Lane tools does
 -- [source: roads/lanes.lua ownLane, made]; the order is type.d.tl's.
--- The new edge gets the old one's fields one by one, not its whole
--- BASE_EDGE: that raised std::exception in the engine (TC7, TC8
+-- The new edge is the engine's own replacement of the old one
+-- (replaceSegment) or a fresh one given its fields one by one, never the
+-- old BASE_EDGE whole: that raised std::exception in the engine (TC7, TC8
 -- [measured 2026-11-26]; M.VARIANTS, M.firstPassing).
 --
 -- Nothing is done (the track stays on both sides) when: Tram track is not
@@ -469,51 +470,71 @@ end
 
 -- The ways to lay an approach again, tried in this order (M.firstPassing)
 -- until the engine's makeProposalData takes one.
--- TC7 / TC8 [measured 2026-11-26]: every proposal whose new edge got the
--- old one's whole BASE_EDGE (seg.comp = old, as electrify.tl and Lane
--- tools do) raised std::exception in makeProposalData and
--- makeWorldBuildProposalCmd ("map_util.h:22 Get: Assertion it !=
--- map.end()" in the Sim Pool), with the lanes unchanged too, in the game
--- script and the GUI alike. A fresh segment's comp given node0, node1,
--- tangent0, tangent1, type and typeIndex one by one was taken (critical
--- false), with BASE_EDGE_STREET, the old laneConfigs or objects added as
--- well (TC8 try.lua). So every way here gives the fields one by one; they
--- differ in the lanes and in what else goes with them: "fields" the lanes
--- written (the strip lanes' track off) and the edge's template name and
--- style (look); "fields-plain" the same without the look (whether the name
--- and style are taken is not measured [guess]); "fields-template" the
--- lanes of this mod's tram copy for the choice (M.templateLanes) with its
--- look. Whether the engine keeps the written lanes once built is not
--- measured yet (stillBoth logs it when not).
+-- TC7 / TC8 [measured 2026-11-26]: the new edge given the old one's whole
+-- BASE_EDGE (seg.comp = old) with the lists given whole raised
+-- std::exception in makeProposalData and makeWorldBuildProposalCmd
+-- ("map_util.h:22 Get: Assertion it != map.end()" in the Sim Pool), the
+-- lanes unchanged too; a fresh comp given node0, node1, tangent0,
+-- tangent1, type and typeIndex one by one, with the lists written by
+-- index, was taken (TC8 try.lua). But an element written into the
+-- engine's list is lost [measured 2026-11-16, AoM strawberries.lua, noted
+-- in remote_probe remote_build.lua], so that proposal may have been empty
+-- [guess], and a missing junction set-up at the nodes (nodeConfigs) is
+-- what map.end() may have been [guess: tf3ctl road writes one for every
+-- node it touches, "a node left without one ... killed the game",
+-- remote_build.lua]. So: the lists are always given whole and read back,
+-- and the first way takes the engine's own replacement of the edge
+-- (api.engine.util.proposal.replaceSegment: its segment and its
+-- nodeConfigs, as garbage_probe and Bus Loops place a stop [source]) with
+-- only the lanes changed; then fields one by one as tf3ctl road gives a
+-- new piece's (M.FIELDS) with the edge's look, without it, and with this
+-- mod's tram copy's lanes. Whether the engine keeps the written lanes
+-- once built is not measured yet (stillBoth logs it when not).
 M.VARIANTS = {
-	{ name = "fields", lanes = "written", streetEdge = true, objects = true, look = true },
-	{ name = "fields-plain", lanes = "written", streetEdge = true, objects = true },
-	{ name = "fields-template", lanes = "template", streetEdge = true, objects = true, look = true },
+	{ name = "replace", base = "replace", lanes = "written" },
+	{ name = "fields", base = "fields", lanes = "written", streetEdge = true, look = true },
+	{ name = "fields-plain", base = "fields", lanes = "written", streetEdge = true },
+	{ name = "fields-template", base = "fields", lanes = "template", streetEdge = true, look = true },
 }
 
--- The BASE_EDGE fields given to the new edge one by one (TC8: these were
--- taken; the whole record raised).
-M.FIELDS = { "node0", "node1", "tangent0", "tangent1", "type", "typeIndex" }
+-- The BASE_EDGE fields given to a fresh edge one by one: TC8's six, and
+-- position0 / position1 and roadType as tf3ctl road gives them
+-- [source: remote_build.lua].
+M.FIELDS = { "node0", "node1", "position0", "position1", "tangent0", "tangent1", "type", "typeIndex", "roadType" }
+
+-- The engine's replacement of an edge: its segment and nodeConfigs, or
+-- raises.
+function M.replacement(api, edge)
+	local native = api.engine.util.proposal.replaceSegment(edge)
+	local ns = native and native.proposal
+	local segs = list(ns and ns.addedSegments)
+	if #segs ~= 1 then error("replaceSegment gave " .. #segs .. " segments for edge " .. tostring(edge)) end
+	return segs[1], list(try(function() return ns.nodeConfigsToAdd end)), list(try(function() return ns.nodeConfigsToRemove end))
+end
 
 -- The proposal that lays each planned edge again with the track only on
--- the chosen side: a fresh segment whose comp gets the old edge's
--- M.FIELDS one by one and laneConfigs as opts.lanes says: "written" (the
--- old ones, the strip lanes' track modes written off, as Lane tools
--- writes a lane), "template" (M.templateLanes) or "same" (unchanged, for
--- the e2e's checks); opts.look its roadTemplate and roadStyle (the
--- template's with "template"), opts.objects its objects, opts.streetEdge /
--- opts.playerOwned its BASE_EDGE_STREET / PLAYER_OWNED. opts nil is the
+-- the chosen side. opts.base: "replace" (M.replacement's segment) or
+-- "fields" (a fresh segment given the old edge's M.FIELDS one by one);
+-- opts.lanes: "written" (the old lanes, the strip lanes' track modes
+-- written off, as Lane tools writes a lane), "template" (M.templateLanes)
+-- or "same" (unchanged, for the e2e's checks); opts.look the roadTemplate
+-- and roadStyle (the template's with "template"), opts.objects the old
+-- objects, opts.streetEdge / opts.playerOwned BASE_EDGE_STREET /
+-- PLAYER_OWNED. The lists are given whole and read back. opts nil is the
 -- first of M.VARIANTS. Returns the proposal and the old edges, or raises.
 function M.makeProposal(api, plan, opts)
 	opts = opts or M.VARIANTS[1]
+	-- (each replacement names its own new edge, which may be the same id:
+	-- one edge per proposal, as the game script sends them)
+	if opts.base == "replace" and #plan.edges ~= 1 then error("replaceSegment: one edge per proposal, not " .. #plan.edges) end
 	local proposal = api.type.SimpleProposal.new()
-	local removes, holders = {}, {}
+	local adds, removes, holders, cfgAdd, cfgRemove, cfgSeen = {}, {}, {}, {}, {}, {}
 	for k, item in ipairs(plan.edges) do
 		local old = comp(api, item.edge, "BASE_EDGE")
 		if old == nil then error("edge " .. tostring(item.edge) .. " is gone") end
 		local strip = {}
 		for _, i in ipairs(item.strip) do strip[i] = true end
-		local lanes = list(old.laneConfigs)
+		local lanes = list(try(function() return old.laneConfigs end))
 		local newLanes
 		local lookName, lookStyle = try(function() return old.roadTemplate end), try(function() return old.roadStyle end)
 		if opts.lanes == "template" then
@@ -528,12 +549,29 @@ function M.makeProposal(api, plan, opts)
 				newLanes[i] = strip[i] and M.stripped(api, lc, holders) or lc
 			end
 		end
-		local seg = api.type.SegmentAndEntity.new()
-		seg.entity = -k
-		seg.type = 0
-		for _, f in ipairs(M.FIELDS) do
-			local v = old[f]
-			if v ~= nil then seg.comp[f] = v end
+		local seg
+		if opts.base == "replace" then
+			local add, rem
+			seg, add, rem = M.replacement(api, item.edge)
+			if #list(seg.comp.laneConfigs) ~= #lanes then
+				error("edge " .. item.edge .. ": replaceSegment's segment has " .. #list(seg.comp.laneConfigs) .. " lanes, the edge " .. #lanes)
+			end
+			-- (each node's set-up once: two approaches never share a node, but a count's may meet the engine's twice)
+			for _, c in ipairs(add) do
+				local n = tonumber(try(function() return c.entity end))
+				if not (n and cfgSeen["a" .. n]) then cfgAdd[#cfgAdd + 1] = c; if n then cfgSeen["a" .. n] = true end end
+			end
+			for _, n in ipairs(rem) do
+				if not cfgSeen["r" .. tostring(n)] then cfgRemove[#cfgRemove + 1] = n; cfgSeen["r" .. tostring(n)] = true end
+			end
+		else
+			seg = api.type.SegmentAndEntity.new()
+			seg.entity = -k
+			seg.type = 0
+			for _, f in ipairs(M.FIELDS) do
+				local v = try(function() return old[f] end)
+				if v ~= nil then seg.comp[f] = v end
+			end
 		end
 		seg.comp.laneConfigs = newLanes
 		if opts.look then
@@ -565,11 +603,21 @@ function M.makeProposal(api, plan, opts)
 			local owned = comp(api, item.edge, "PLAYER_OWNED")
 			if owned ~= nil then seg.playerOwned = owned end
 		end
-		-- (by index into the proposal's own lists, as TC8's try.lua did)
-		proposal.streetProposal.edgesToRemove[k] = item.edge
-		proposal.streetProposal.edgesToAdd[k] = seg
+		adds[k] = seg
 		removes[k] = item.edge
 	end
+	-- whole lists, never an element written into the engine's list (it is
+	-- lost: see M.VARIANTS), and read back
+	local sp = proposal.streetProposal
+	sp.edgesToRemove = removes
+	sp.edgesToAdd = adds
+	if #cfgAdd > 0 then sp.nodeConfigsToAdd = cfgAdd end
+	if #cfgRemove > 0 then sp.nodeConfigsToRemove = cfgRemove end
+	if #list(sp.edgesToRemove) ~= #removes or #list(sp.edgesToAdd) ~= #adds then
+		error(string.format("the proposal holds %d / %d edges to remove / add, not %d", #list(sp.edgesToRemove),
+			#list(sp.edgesToAdd), #adds))
+	end
+	if #list(try(function() return sp.nodeConfigsToAdd end)) ~= #cfgAdd then error("the junction set-ups were not written as asked") end
 	return proposal, removes
 end
 
@@ -584,7 +632,16 @@ function M.verdict(api, proposal, context)
 		for _, x in ipairs(list(data.errorState.messages)) do msg = msg .. " " .. tostring(x) end
 	end)
 	if critical then return "critical:" .. msg end
-	return nil
+	return nil, M.dataCounts(data)
+end
+
+-- What a ProposalData holds, to tell an empty proposal: costs and the
+-- transport networks made (entity2tn).
+function M.dataCounts(data)
+	local n = 0
+	pcall(function() for _ in pairs(data.entity2tn) do n = n + 1 end end)
+	if n == 0 then n = #list(try(function() return data.entity2tn end)) end
+	return { costs = tonumber(try(function() return data.costs end)), networks = n }
 end
 
 -- The first of M.VARIANTS (from number `from`, 1 when nil) the engine

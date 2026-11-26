@@ -131,23 +131,8 @@ local function sendFound(state)
 	end
 end
 
--- 3. The event: lays the approach edges again.
-local function lay(param)
-	local con = tonumber(param.construction)
-	if not con and tonumber(param.x) and tonumber(param.y) then
-		local info = tram.constructionNear(api, tonumber(param.x), tonumber(param.y), tonumber(param.z))
-		con = info and info.entity
-		if not con then
-			return log(string.format("no ramp found at %.1f, %.1f; the track stays on both sides", tonumber(param.x), tonumber(param.y)))
-		end
-	end
-	if not con then return log("event without a construction; nothing done") end
-	local plan, why, worth = tram.plan(api, con)
-	if not plan then
-		if worth then log("construction " .. con .. ": " .. tostring(why) .. "; the track stays on both sides") end
-		return
-	end
-	for _, note in ipairs(plan.notes) do log("construction " .. con .. ": " .. note .. " (left as it is)") end
+-- One approach edge's lay-again (plan with one edge): the ways in turn.
+local function layOne(con, plan, param)
 	-- (the ways of laying it again, in order, until the engine takes one:
 	-- approach_tram.lua M.VARIANTS; whole records raised in the engine, TC7, TC8)
 	local what = tram.describe(plan)
@@ -190,6 +175,31 @@ local function lay(param)
 	-- (a way after the first is worth a line: the next e2e reads which)
 	if #fails > 0 then
 		log(string.format("construction %d: laid again the \"%s\" way (not: %s)", con, way, table.concat(fails, " | ")))
+	end
+end
+
+-- 3. The event: lays the approach edges again.
+local function lay(param)
+	local con = tonumber(param.construction)
+	if not con and tonumber(param.x) and tonumber(param.y) then
+		local info = tram.constructionNear(api, tonumber(param.x), tonumber(param.y), tonumber(param.z))
+		con = info and info.entity
+		if not con then
+			return log(string.format("no ramp found at %.1f, %.1f; the track stays on both sides", tonumber(param.x), tonumber(param.y)))
+		end
+	end
+	if not con then return log("event without a construction; nothing done") end
+	local plan, why, worth = tram.plan(api, con)
+	if not plan then
+		if worth then log("construction " .. con .. ": " .. tostring(why) .. "; the track stays on both sides") end
+		return
+	end
+	for _, note in ipairs(plan.notes) do log("construction " .. con .. ": " .. note .. " (left as it is)") end
+	-- (one proposal per approach edge: the engine's replacement of each
+	-- names its own new edge, and one refused leaves the others' to go)
+	for _, item in ipairs(plan.edges) do
+		local one = { construction = plan.construction, choice = plan.choice, params = plan.params, edges = { item }, notes = {} }
+		layOne(con, one, param)
 	end
 end
 

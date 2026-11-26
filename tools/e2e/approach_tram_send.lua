@@ -50,7 +50,11 @@ out.plan = tram.describe(plan)
 
 -- (the ways in order, as the game script tries them: approach_tram.lua
 -- M.VARIANTS; each one that the engine does not take is in fails)
-local proposal, way, fails = tram.firstPassing(api, plan, tram.context(api))
+-- (the first approach edge only, one per proposal as the game script
+-- sends them; the others of a count of 2 or 3: the script-event)
+local first = { construction = plan.construction, choice = plan.choice, params = plan.params, edges = { plan.edges[1] }, notes = {} }
+out.edge = plan.edges[1].edge
+local proposal, way, fails = tram.firstPassing(api, first, tram.context(api))
 out.fails = fails
 if not proposal then out.stage = "no way taken (see fails; tools/e2e/approach_tram_steps.lua for each step)"; return out end
 out.way = way

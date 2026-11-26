@@ -1,35 +1,45 @@
 -- e2e (tf3ctl eval --write --gs, test saves only; sends nothing): where the
--- approach's lay-again breaks, step by step. For each way of building it
--- (WAYS below: the new edge's comp given the old BASE_EDGE whole, which
--- raised in TC7 and TC8, kept for contrast; or its fields one by one
--- (approach_tram.lua M.FIELDS, taken in TC8), with the lanes unchanged,
--- written mode by mode or a template's, and with or without the look,
--- objects, BASE_EDGE_STREET and PLAYER_OWNED) every assignment and call
--- runs in its own pcall; the
--- answer gives, per way, the steps done and the first that raised, then the
--- engine's verdict: makeProposalData with the mod's context and with none,
--- and makeWorldBuildProposalCmd made but not sent (TC7 raised in it).
+-- approach's lay-again breaks, step by step. WAYS below: how the new edge
+-- is made (base: "replace" the engine's replaceSegment, with its junction
+-- set-ups; "fields" a fresh one given approach_tram.lua M.FIELDS one by
+-- one; "try" TC8 try.lua's six fields; "whole" the old BASE_EDGE whole,
+-- which raised in TC7 and TC8), its lanes (written: the other side's track
+-- off; same; template), the look, objects, BASE_EDGE_STREET, PLAYER_OWNED,
+-- and how the lists go in (whole, or element by element as try.lua: an
+-- element written into an engine list may be lost, AoM 2026-11-16). Every
+-- assignment and call runs in its own pcall; per way the answer gives the
+-- steps done, the first that raised, how many edges and set-ups the
+-- proposal holds when read back (0 for an empty one), then makeProposalData
+-- with the mod's context and with none (critical, messages, costs,
+-- networks made) and makeWorldBuildProposalCmd made but not sent.
 -- A way the engine refuses may log "map_util.h:22 ... Assertion" in the
--- Sim Pool (TC7: the game went on).
+-- Sim Pool (TC7, TC8: the game went on).
 --
 -- __WAY__: one way's name in quotes (one eval per way, so a game that stops
--- on an assert loses only that way's answer: "fields" first, the game
--- script's), or "all" (the "whole-*" ways raise in the engine: TC8).
+-- on an assert loses only that way's answer: "replace" first, the game
+-- script's first), or "all".
 --
---   sed -e 's/__CONSTRUCTION__/23456/' -e 's/__WAY__/"fields"/' tools/e2e/approach_tram_steps.lua > "$SCRATCH/steps.lua"
+--   sed -e 's/__CONSTRUCTION__/23456/' -e 's/__WAY__/"replace"/' tools/e2e/approach_tram_steps.lua > "$SCRATCH/steps.lua"
 --   python3 .../tf3ctl.py --owner mod-keeper eval --write --gs --file "$SCRATCH/steps.lua"
 local CONSTRUCTION = __CONSTRUCTION__
 local WAY = __WAY__
 
 local tram = require "road_tunnel_ramp::/road_tunnel_ramp/approach_tram.lua"
 local CT = api.type.ComponentType
+local TRY_FIELDS = { "node0", "node1", "tangent0", "tangent1", "type", "typeIndex" }
 local WAYS = {
-	{ name = "fields", lanes = "written", streetEdge = true, objects = true, look = true },
-	{ name = "fields-plain", lanes = "written", streetEdge = true, objects = true },
-	{ name = "fields-template", lanes = "template", streetEdge = true, objects = true, look = true },
-	{ name = "fields-same", lanes = "same", streetEdge = true, objects = true, look = true },
-	{ name = "fields-owned", lanes = "written", streetEdge = true, objects = true, look = true, playerOwned = true },
-	{ name = "whole-same", whole = true, lanes = "same" },
+	{ name = "replace", base = "replace", lanes = "written" },
+	{ name = "replace-same", base = "replace", lanes = "same" },
+	{ name = "fields", base = "fields", lanes = "written", streetEdge = true, look = true },
+	{ name = "fields-plain", base = "fields", lanes = "written", streetEdge = true },
+	{ name = "fields-template", base = "fields", lanes = "template", streetEdge = true, look = true },
+	{ name = "fields-objects", base = "fields", lanes = "written", streetEdge = true, look = true, objects = true },
+	{ name = "fields-owned", base = "fields", lanes = "written", streetEdge = true, look = true, playerOwned = true },
+	-- TC8 try.lua as it was: six fields, the lanes as read, lists by element
+	{ name = "try", base = "try", lanes = "vector", streetEdge = true, lists = "element" },
+	{ name = "try-whole-lists", base = "try", lanes = "vector", streetEdge = true },
+	{ name = "whole-same", base = "whole", lanes = "same" },
+	{ name = "whole-element-lists", base = "whole", lanes = "same", lists = "element" },
 }
 
 local out = { construction = CONSTRUCTION, ways = {} }
@@ -41,8 +51,7 @@ local known = false
 for _, w in ipairs(WAYS) do if WAY == "all" or w.name == WAY then known = true end end
 if not known then out.stage = "no way named " .. tostring(WAY); return out end
 
-for _, w in ipairs(WAYS) do
-	if WAY == "all" or w.name == WAY then
+local function runWay(w)
 	local r = { way = w.name, done = {} }
 	local failed = false
 	local function step(name, fn)
@@ -56,7 +65,7 @@ for _, w in ipairs(WAYS) do
 		r.failedAt, r.error = name, tostring(v)
 		return nil
 	end
-	local adds, removes, holders = {}, {}, {}
+	local adds, removes, holders, cfgAdd, cfgRemove = {}, {}, {}, {}, {}
 	for k, item in ipairs(plan.edges) do
 		local tag = "edge " .. item.edge .. ": "
 		local old = step(tag .. "getComponent BASE_EDGE", function()
@@ -64,22 +73,36 @@ for _, w in ipairs(WAYS) do
 			assert(c ~= nil, "no BASE_EDGE")
 			return c
 		end)
-		local seg = step(tag .. "SegmentAndEntity.new", function() return api.type.SegmentAndEntity.new() end)
-		step(tag .. "seg.entity = -" .. k, function() seg.entity = -k end)
-		step(tag .. "seg.type = 0", function() seg.type = 0 end)
-		if w.whole then
-			step(tag .. "seg.comp = old", function() seg.comp = old end)
+		local seg
+		if w.base == "replace" then
+			seg = step(tag .. "replaceSegment", function()
+				local s, add, rem = tram.replacement(api, item.edge)
+				for _, c in ipairs(add) do cfgAdd[#cfgAdd + 1] = c end
+				for _, n in ipairs(rem) do cfgRemove[#cfgRemove + 1] = n end
+				r.replaceConfigs = { add = #add, remove = #rem }
+				return s
+			end)
 		else
-			for _, f in ipairs(tram.FIELDS) do
-				step(tag .. "seg.comp." .. f, function()
-					local v = old[f]
-					if v ~= nil then seg.comp[f] = v end
-				end)
+			seg = step(tag .. "SegmentAndEntity.new", function() return api.type.SegmentAndEntity.new() end)
+			step(tag .. "seg.entity = -" .. k, function() seg.entity = -k end)
+			step(tag .. "seg.type = 0", function() seg.type = 0 end)
+			if w.base == "whole" then
+				step(tag .. "seg.comp = old", function() seg.comp = old end)
+			else
+				for _, f in ipairs(w.base == "try" and TRY_FIELDS or tram.FIELDS) do
+					step(tag .. "seg.comp." .. f, function()
+						local v = old[f]
+						if v ~= nil then seg.comp[f] = v end
+					end)
+				end
 			end
 		end
 		local lookName, lookStyle
-		step(tag .. "old.roadTemplate / roadStyle", function() lookName, lookStyle = old.roadTemplate, old.roadStyle end)
+		if w.look then
+			step(tag .. "old.roadTemplate / roadStyle", function() lookName, lookStyle = old.roadTemplate, old.roadStyle end)
+		end
 		local lanes = step(tag .. "lanes (" .. w.lanes .. ")", function()
+			if w.lanes == "vector" then return old.laneConfigs end
 			if w.lanes == "same" then return tram.list(old.laneConfigs) end
 			if w.lanes == "template" then
 				local tl, name, style = tram.templateLanes(api, item, old, plan.choice, plan.params or {})
@@ -110,7 +133,6 @@ for _, w in ipairs(WAYS) do
 		end
 		step(tag .. "lanes read back", function()
 			local back = tram.list(seg.comp.laneConfigs)
-			assert(#back == #lanes, #back .. " lanes back of " .. #lanes)
 			r.lanesBack = {}
 			for i, lc in ipairs(back) do
 				local modes = {}
@@ -133,12 +155,31 @@ for _, w in ipairs(WAYS) do
 		adds[k], removes[k] = seg, item.edge
 	end
 	local proposal = step("SimpleProposal.new", function() return api.type.SimpleProposal.new() end)
-	-- (by index, as TC8's try.lua)
-	step("edgesToRemove", function() for k, e in ipairs(removes) do proposal.streetProposal.edgesToRemove[k] = e end end)
-	step("edgesToAdd", function() for k, seg in ipairs(adds) do proposal.streetProposal.edgesToAdd[k] = seg end end)
-	-- The three asks each run on their own, whatever went before them
-	-- (whether the mod's context is the cause is one of the questions),
-	-- once the proposal is whole.
+	local sp = proposal and proposal.streetProposal
+	if w.lists == "element" then
+		step("edgesToRemove[k] / edgesToAdd[k]", function()
+			for k, e in ipairs(removes) do sp.edgesToRemove[k] = e end
+			for k, seg in ipairs(adds) do sp.edgesToAdd[k] = seg end
+		end)
+	else
+		step("edgesToRemove / edgesToAdd (whole lists)", function()
+			sp.edgesToRemove = removes
+			sp.edgesToAdd = adds
+			if #cfgAdd > 0 then sp.nodeConfigsToAdd = cfgAdd end
+			if #cfgRemove > 0 then sp.nodeConfigsToRemove = cfgRemove end
+		end)
+	end
+	-- (0 here: the proposal is empty, whatever the engine says of it)
+	if sp then
+		local ok = pcall(function()
+			r.held = { remove = #tram.list(sp.edgesToRemove), add = #tram.list(sp.edgesToAdd),
+				configsAdd = #tram.list(sp.nodeConfigsToAdd), configsRemove = #tram.list(sp.nodeConfigsToRemove) }
+		end)
+		if not ok then r.held = "does not read" end
+	end
+	-- The asks each run on their own, whatever went before them (whether
+	-- the mod's context is the cause is one of the questions), once the
+	-- proposal is whole.
 	local whole = not failed
 	local function verdict(name, ctx)
 		if not whole then return end
@@ -149,6 +190,8 @@ for _, w in ipairs(WAYS) do
 				v.critical = data.errorState.critical == true
 				for _, x in ipairs(tram.list(data.errorState.messages)) do v.messages[#v.messages + 1] = tostring(x) end
 			end)
+			local c = tram.dataCounts(data)
+			v.costs, v.networks = c.costs, c.networks
 			r[name] = v
 		end)
 		if not ok then r[name] = { raised = tostring(err) } end
@@ -160,7 +203,10 @@ for _, w in ipairs(WAYS) do
 		local ok, err = pcall(function() api.cmd.makeWorldBuildProposalCmd(proposal, tram.context(api), false, false) end)
 		r["makeWorldBuildProposalCmd (not sent)"] = ok and "made" or { raised = tostring(err) }
 	end
-	out.ways[#out.ways + 1] = r
-	end
+	return r
+end
+
+for _, w in ipairs(WAYS) do
+	if WAY == "all" or w.name == WAY then out.ways[#out.ways + 1] = runWay(w) end
 end
 return out
