@@ -9,6 +9,8 @@ The first public release is 1.0.0 (`revision` 10000).
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-26
+
 ### Added
 - **Portal cover length** (both constructions): the whole length of the
   portal cover, 6–24 m in 1 m steps, 18 m initially. The cover starts 6 m
