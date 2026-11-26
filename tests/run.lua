@@ -5592,6 +5592,54 @@ do
 		if compared < n then print("     (base part skipped for " .. (n - compared) .. ": street.zip not found)") end
 	end)
 
+	-- an edge's part: the flat approach (ends at x <= 0), the runout (from
+	-- x >= L), the descent between
+	local function roleOf(e, L)
+		local xa, xb = e.edges[1][1][1], e.edges[2][1][1]
+		if math.max(xa, xb) <= 1e-9 then return "approach" end
+		if math.min(xa, xb) >= L - 1e-9 then return "runout" end
+		return "descent"
+	end
+
+	test("tram: rtr_tram_edge (e2e only) puts tramTrackType on none, the approach and runout (initial), or every edge; the types and lanes stay", function()
+		for _, i in ipairs({ 3, 4, 6, 8 }) do
+			for _, wire in ipairs({ 1, 2 }) do
+				local want = wire == 1 and "ELECTRIC" or "YES"
+				local base = script.updateFn(cap, { rtr_street = i, rtr_tram = 3, rtr_tram_wire = wire })
+				for mode = 0, 2 do
+					local p = { rtr_street = i, rtr_tram = 3, rtr_tram_wire = wire, rtr_tram_edge = mode }
+					local r = script.updateFn(cap, p)
+					local seen = {}
+					for k, e in ipairs(r.edgeLists) do
+						local role = roleOf(e, 100)
+						seen[role] = true
+						local tt = nil
+						if mode == 2 or (mode == 1 and role ~= "descent") then tt = want end
+						local tag = string.format("street %d wire %d mode %d edge %d (%s)", i, wire, mode, k, role)
+						eq(e.params.tramTrackType, tt, tag)
+						-- the type is the same copy whatever the mode, and that
+						-- copy has the track on the lane asked for (right: f)
+						eq(e.params.type, base.edgeLists[k].params.type, tag .. " type")
+						assert(e.params.type:find("streets/tram_", 1, true), tag .. " a tram copy: " .. e.params.type)
+						local t = templateOf(e.params.type)
+						local cars = carLanes(t)
+						eq(table.concat(lanesWith(t, "TRAM"), ","), tostring(cars[#cars]), tag .. " TRAM on the last car lane")
+					end
+					assert(seen.approach and seen.descent and seen.runout, "all three parts")
+				end
+				-- missing and junk read as 1
+				local ok, why = sameValue(script.updateFn(cap, { rtr_street = i, rtr_tram = 3, rtr_tram_wire = wire, rtr_tram_edge = 1 }), base, "street " .. i)
+				assert(ok, why)
+				ok, why = sameValue(script.updateFn(cap, { rtr_street = i, rtr_tram = 3, rtr_tram_wire = wire, rtr_tram_edge = "x" }), base, "junk")
+				assert(ok, why)
+			end
+		end
+		-- no track: no tramTrackType whatever the mode
+		for mode = 0, 2 do
+			for _, e in ipairs(script.updateFn(cap, { rtr_tram_edge = mode }).edgeLists) do eq(e.params.tramTrackType, nil, "no track") end
+		end
+	end)
+
 	-- Where a lane lies across its street: the centre of lane k from the
 	-- street's centre line, as the lanes are laid side by side.
 	local function laneCentre(t, k)
@@ -5618,7 +5666,12 @@ do
 								local tag = string.format("street %d count %d side %d dir %d tram %d wire %d", i, count, side, direction, tram, wire)
 								local places = {}
 								for k, e in ipairs(r.edgeLists) do
-									eq(e.params.tramTrackType, nil, tag .. " edge " .. k .. ": no tramTrackType")
+									-- initially (rtr_tram_edge 1) the approach and the
+									-- runout get tramTrackType with a track, the descent none
+									local role = roleOf(e, 100)
+									local wantTT = nil
+									if lanes and role ~= "descent" then wantTT = wire == 1 and "ELECTRIC" or "YES" end
+									eq(e.params.tramTrackType, wantTT, tag .. " edge " .. k .. " (" .. role .. ") tramTrackType")
 									local want = geometry.tramRef(expectedRefOf(e, street, 100), lanes, power)
 									eq(e.params.type, want, tag .. " edge " .. k)
 									local own = e.params.type:find("^road_tunnel_ramp::")

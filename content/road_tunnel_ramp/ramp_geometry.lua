@@ -235,6 +235,31 @@ function M.tramRef(ref, lanes, power)
 	return TRAM_DIR .. stem .. "_" .. lanes .. "_" .. (power or "etram") .. ".street_template"
 end
 
+-- The edges' tramTrackType with a track, by their part. In game
+-- [measured 2026-11-26 TC5, tf3ctl lanes] the descent's copies
+-- (ramp_descent_*: no sidewalk lanes) carried their TRAM lanes as written
+-- with no tramTrackType, while the approach's and the runout's copies (of
+-- the base streets) carried none: tramLanes [] on edges of the copy's type.
+-- Why is not known [guess: the game takes a street's tram lanes from the
+-- edge's tramTrackType when it is NO on such streets]. Another mod lays its
+-- tram copies (TRAM in the lanes) with tramTrackType YES / ELECTRIC as well,
+-- noting that without it trams ran with no rails drawn [source: Industry
+-- Tram Access, mod.io 6428712, geometry.lua]; and a road's tramTrackType
+-- track goes on one lane each way, set by busAndTramRight [source: PYT
+-- pack, mod.io 6441212, its notes P499 / P500], which may not be the one
+-- the copy carries (Right / Left). rtr_tram_edge (not in the menu) lets the
+-- e2e compare at one sitting:
+--   0 none on any edge (the TC5 build)
+--   1 on the approach and the runout (initial: where the track was missing)
+--   2 on every edge
+-- YES without catenary, ELECTRIC with it.
+function M.tramEdgeTypes(mode, power)
+	local t = power == "tram" and "YES" or "ELECTRIC"
+	if mode == 0 then return {} end
+	if mode == 2 then return { approach = t, descent = t, runout = t } end
+	return { approach = t, runout = t }
+end
+
 -- The copies' lanes for rtr_tram (1-4), the traffic side (1 right-hand, 2
 -- left) and whether the street is one-way. A one-way street has one
 -- direction, so Both is its outer lane, as on the base game's one-way tram
@@ -297,6 +322,7 @@ function M.spec(cap, p)
 	-- (the e2e's stand-ins have no tram copies: no track on them)
 	local tramLanes = not street.variant and M.tramLanes(math.floor(value(p, "rtr_tram", 1, 1, 4) + 0.5), side, street.oneWay) or nil
 	local tramPower = M.TRAM_POWER[math.floor(value(p, "rtr_tram_wire", 1, 1, 2) + 0.5)]
+	local tramEdge = math.floor(value(p, "rtr_tram_edge", 1, 0, 2) + 0.5)
 	-- 0.5 and up rounds to 1, the threshold the 0 / 1 switch had.
 	local approachMode = math.floor(value(p, "rtr_approach_hand_over", 1, 0, 2) + 0.5)
 	return {
@@ -314,6 +340,7 @@ function M.spec(cap, p)
 		-- tram track: the copies' lanes (nil: none) and power (M.tramRef)
 		tramLanes = tramLanes,
 		tramPower = tramPower,
+		tramEdge = tramEdge,
 		approach = value(p, "rtr_approach", 20, 2, 50),
 		-- The menu starts on thin (rtr_wall defaultIndex); a spec read
 		-- without the key (the tests written before it) keeps the thick
@@ -634,6 +661,11 @@ function M.build(s)
 	local streetRef = M.tramRef(s.street.ref, s.tramLanes, s.tramPower)
 	local descentRef = M.tramRef(g.descentRef, s.tramLanes, s.tramPower)
 	local edgeRef = streetRef
+	-- The edges' tramTrackType with a track (M.tramEdgeTypes): nil leaves
+	-- it out, as every edge had it out before.
+	local tramTT = { approach = nil, descent = nil, runout = nil }
+	if s.tramLanes then tramTT = M.tramEdgeTypes(s.tramEdge, s.tramPower) end
+	local edgeTT = nil
 	local tunnelRef = s.tunnelRef
 	local L, D, count, approach, runout = g.L, g.D, g.count, g.approach, g.runout
 	local gy, sloped = g.gy, g.sloped
@@ -673,7 +705,7 @@ function M.build(s)
 		-- either side of the portal.
 		local e = {
 			type = "STREET",
-			params = { type = edgeRef },
+			params = { type = edgeRef, tramTrackType = edgeTT },
 			edges = { a, b },
 			snapNodes = snaps,
 			freeNodes = frees,
@@ -714,7 +746,7 @@ function M.build(s)
 	for idx, yOffset in ipairs(ys) do
 		reverse = flows[idx] == -1
 		local snapApproach = (idx == snapIdx)
-		edgeRef = streetRef
+		edgeRef, edgeTT = streetRef, tramTT.approach
 		-- Flat approach segment (external connection at x = -approach).
 		-- ys[snapIdx] snaps to the external road.
 		-- Handed over (both nodes free, as the base game's interchanges
@@ -754,7 +786,7 @@ function M.build(s)
 			false, snapApproach, false,
 			handOver or depotStyle or not snapApproach, handOver
 		)
-		edgeRef = descentRef
+		edgeRef, edgeTT = descentRef, tramTT.descent
 		for i = 1, #uniq - 1 do
 			local ta, tb = uniq[i], uniq[i + 1]
 			local za, ga = profile(ta)
@@ -769,7 +801,7 @@ function M.build(s)
 			)
 		end
 		-- Underground runout, so the player's own tunnel can snap to the end.
-		edgeRef = streetRef
+		edgeRef, edgeTT = streetRef, tramTT.runout
 		for i = 0, segN - 1 do
 			local a, b = L + runout * i / segN, L + runout * (i + 1) / segN
 			edge(
