@@ -164,6 +164,12 @@ local function lay(param)
 	local okS, err = pcall(tram.send, api, proposal, function(success, msg)
 		if not success then
 			log(string.format("construction %d: refused (%s), the track stays on both sides:%s", con, what, msg))
+			return
+		end
+		local okV, left = pcall(tram.stillBoth, api, plan)
+		if okV and #left > 0 then
+			log(string.format("construction %d: built (%s), but edge %s still has the track on both sides", con, what,
+				table.concat(left, ",")))
 		end
 	end)
 	if not okS then log("construction " .. con .. ": not sent, the track stays on both sides: " .. tostring(err)) end

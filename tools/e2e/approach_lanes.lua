@@ -82,7 +82,7 @@ for _, e in ipairs(EDGES) do
 			local lane = { index = i, forward = lc.forward, offset = lc.offset, width = lc.width, modes = modes }
 			r.lanes[i] = lane
 			for _, name in ipairs(modes) do
-				if name == "TRAM" or name == "ELECTRIC_TRAM" then r.trackLanes[#r.trackLanes + 1] = i; break end
+				if name == "TRAM" or name == "ELECTRIC_TRAM" or name == "TRAM_TRACK" or name == "ELECTRIC_TRAM_TRACK" then r.trackLanes[#r.trackLanes + 1] = i; break end
 			end
 		end
 	end

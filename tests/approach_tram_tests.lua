@@ -56,7 +56,7 @@ end
 -- The stand-in engine around a world { constructions, edges, nodes }.
 local function fakeApi(world)
 	local sent = {}
-	local api = { sent = sent }
+	local api = { sent = sent, world = world }
 	api.type = {
 		ComponentType = { BASE_EDGE = "BASE_EDGE", BASE_NODE = "BASE_NODE", CONSTRUCTION = "CONSTRUCTION",
 			BASE_EDGE_STREET = "BASE_EDGE_STREET", PLAYER_OWNED = "PLAYER_OWNED" },
@@ -177,7 +177,7 @@ end)
 test("approach tram: lanesToStrip leaves one-way, unread, trimmed and trackless-chosen-side edges alone", function()
 	local oneWay = plainLanes({ lane(true, -0.5, 5, CAR_TRACK), lane(true, 0.5, 5, CAR_TRACK) })
 	local got, why = tram.lanesToStrip(oneWay, 3, 1, true)
-	eq(#got, 0, "one-way"); assert(why, "one-way says why")
+	eq(#got, 0, "one-way"); eq(why, nil, "one-way is quiet: its track is one lane set already")
 	got, why = tram.lanesToStrip({}, 3, 1, true)
 	eq(#got, 0, "empty"); assert(why, "empty says why")
 	got, why = tram.lanesToStrip(nil, 3, 1, true)
@@ -255,6 +255,49 @@ test("approach tram: plan picks the handed-over approach, not the descent or the
 	eq(p, nil, "no approach"); eq(worth, true, "no approach is logged"); assert(why:find("no approach", 1, true), why)
 	p, why, worth = tram.plan(fakeApi(world()), 999)
 	eq(p, nil, "no construction"); eq(worth, true, "no construction is logged")
+end)
+
+test("approach tram: plan is quiet on a one-way approach, takes every street of a count, and skips the median's side streets", function()
+	local oneWay = { lane(true, -0.5, 5, CAR), lane(true, 0.5, 5, CAR_TRACK) }
+	local p, why, worth = tram.plan(fakeApi(world({ lanes = oneWay })), 100)
+	eq(p, nil, "one-way"); eq(worth, false, "one-way is quiet (" .. tostring(why) .. ")")
+	-- two streets (count 2) at y = -8 and +8, both with the track on both sides
+	local w = world()
+	local function at(x, y, z) return { x = 1000 - y, y = 2000 + x, z = 50 + (z or 0) } end
+	w.nodes[1], w.nodes[2] = at(-20, -8), at(0, -8)
+	w.nodes[5], w.nodes[6], w.nodes[7] = at(-20, 8), at(0, 8), at(12.5, 8, -0.5)
+	w.edges[13] = { node0 = 5, node1 = 6, laneConfigs = smallBoth(), roadTemplate = "town_new_small" }
+	w.edges[14] = { node0 = 6, node1 = 7, laneConfigs = smallBoth(), roadTemplate = "ramp_descent" }
+	w.constructions[100].frozenEdges = { 11, 14 }
+	-- a median side street from x = 0 on, handed over, with a track on both sides
+	w.nodes[8], w.nodes[9] = at(0, 16), at(40, 16)
+	w.edges[15] = { node0 = 8, node1 = 9, laneConfigs = smallBoth(), roadTemplate = "median_side_r" }
+	local plan = assert(tram.plan(fakeApi(w), 100))
+	eq(#plan.edges, 2, "both approaches"); eq(plan.edges[1].edge, 10, "first"); eq(plan.edges[2].edge, 13, "second")
+	local proposal = tram.makeProposal(fakeApi(w), plan)
+	assert(same(proposal.streetProposal.edgesToRemove, { 10, 13 }), "one proposal for both")
+	eq(proposal.streetProposal.edgesToAdd[2].entity, -2, "second new id")
+	w.constructions[100].fileName = "road_tunnel_ramp/median.con"
+	plan = assert(tram.plan(fakeApi(w), 100))
+	for _, e in ipairs(plan.edges) do assert(e.edge ~= 15 and e.edge ~= 11 and e.edge ~= 14, "laid again: " .. e.edge) end
+end)
+
+test("approach tram: stillBoth reads the new edge between the old nodes after a yes", function()
+	local w = world()
+	local api = fakeApi(w)
+	local plan = assert(tram.plan(api, 100))
+	-- the engine laid it again as asked (a new id, the other side bare)
+	w.edges[10] = nil
+	w.edges[20] = { node0 = 1, node1 = 2, laneConfigs = { lane(false, 0.15, 3, SW), lane(false, -0.5, 5, CAR),
+		lane(true, 0.5, 5, CAR_TRACK), lane(true, -0.15, 3, SW) } }
+	eq(#tram.stillBoth(api, plan), 0, "as asked")
+	-- the engine said yes but laid both again
+	w.edges[20].laneConfigs = smallBoth()
+	assert(same(tram.stillBoth(api, plan), { 20 }), "both again")
+	-- laid again the other way round (node1 -> node0): the same lanes read from the other end
+	w.edges[20] = { node0 = 2, node1 = 1, laneConfigs = { lane(false, 0.15, 3, SW), lane(false, -0.5, 5, CAR_TRACK),
+		lane(true, 0.5, 5, CAR), lane(true, -0.15, 3, SW) } }
+	eq(#tram.stillBoth(api, plan), 0, "reversed, as asked")
 end)
 
 test("approach tram: makeProposal lays the approach again with the other side's track off, the rest as it was", function()
@@ -372,8 +415,18 @@ test("approach tram script: build event -> update's event -> handleEvent's propo
 	eq(#fapi.sent, 2, "the proposal"); eq(fapi.sent[2].cmd.kind, "build", "a build")
 	assert(same(fapi.sent[2].cmd.proposal.streetProposal.edgesToRemove, { 10 }), "edge 10 laid again")
 	eq(#lines, 0, "nothing logged on the way")
+	-- the engine's yes, with the world laid again as asked: quiet
+	local w = fapi.world
+	w.edges[10] = nil
+	w.edges[20] = { node0 = 1, node1 = 2, laneConfigs = { lane(false, 0.15, 3, SW), lane(false, -0.5, 5, CAR),
+		lane(true, 0.5, 5, CAR_TRACK), lane(true, -0.15, 3, SW) } }
 	run(fapi.sent[2].cb, {}, true)
 	eq(#lines, 0, "nothing logged when built")
+	-- a yes that left both: one line
+	w.edges[20].laneConfigs = smallBoth()
+	run(fapi.sent[2].cb, {}, true)
+	eq(#lines, 1, "a yes that left both is logged"); assert(lines[1]:find("still has the track", 1, true), lines[1])
+	table.remove(lines, 1)
 	run(fapi.sent[2].cb, { resultProposalData = { errorState = { critical = true, messages = { "Collision" } } } }, false)
 	eq(#lines, 1, "a refusal is logged"); assert(lines[1]:find("refused", 1, true) and lines[1]:find("Collision", 1, true), lines[1])
 end)

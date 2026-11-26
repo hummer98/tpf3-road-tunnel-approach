@@ -13,7 +13,8 @@
 -- engine's verdict (dry) or "sent". The build's own answer comes in a
 -- callback after this returns: it is logged ("[road_tunnel_ramp] tram
 -- approach (by hand): ..." in tf3ctl log) and kept in the module, which
--- the next eval --gs reads:
+-- the next eval --gs may read (if eval --gs keeps the module between
+-- requests; else read the log line):
 --   eval --gs 'return require("road_tunnel_ramp::/road_tunnel_ramp/approach_tram.lua").lastManual'
 local CONSTRUCTION = __CONSTRUCTION__
 local DRY = __DRY__
@@ -35,7 +36,7 @@ out.approaches = {}
 for _, a in ipairs(approaches) do
 	local track = {}
 	for i, l in ipairs(a.lanes) do
-		if l.modes.TRAM or l.modes.ELECTRIC_TRAM then track[#track + 1] = i end
+		if l.modes.TRAM or l.modes.ELECTRIC_TRAM or l.modes.TRAM_TRACK or l.modes.ELECTRIC_TRAM_TRACK then track[#track + 1] = i end
 	end
 	local strip, whyNot = tram.lanesToStrip(a.lanes, choice.tram, choice.side, a.runsIn)
 	out.approaches[#out.approaches + 1] = { edge = a.edge, runsIn = a.runsIn, lanes = #a.lanes, trackLanes = track,

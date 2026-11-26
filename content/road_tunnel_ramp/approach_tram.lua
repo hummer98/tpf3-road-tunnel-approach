@@ -43,8 +43,10 @@
 -- Nothing is done (the track stays on both sides) when: Tram track is not
 -- Right or Left, the approach is kept in the construction (the e2e's
 -- rtr_approach_hand_over 0 / 2), no approach edge is found, the street is
--- one-way, the chosen side has no track, or the engine refuses the
--- proposal. Only failures are logged (rtr_approach_tram.script.lua).
+-- one-way (its track is one lane set already), the chosen side has no
+-- track, or the engine refuses the proposal. Only failures are logged
+-- (rtr_approach_tram.script.lua), and a build answered yes that left the
+-- track on both sides (stillBoth).
 --
 -- Engine-free but for the functions that take `api` (the game's, or the
 -- tests' stand-in), so the choice and the proposal are tested offline.
@@ -146,7 +148,10 @@ function M.lanesToStrip(lanes, tram, side, runsIn)
 			if into == keepInto and hasAny(l, M.TRACK) then keptTrack = true end
 		end
 	end
-	if not (dirs[true] and dirs[false]) then return {}, "one-way, or the lanes' directions do not read" end
+	-- (one direction only: a one-way street, whose track is one lane set
+	-- already, as tramTrackType is not given there: nothing to do, quietly)
+	if dirs[true] ~= dirs[false] then return {} end
+	if not dirs[true] then return {}, "the lanes' directions do not read" end
 	local out = {}
 	for i, l in ipairs(lanes) do
 		if type(l.forward) == "boolean" and (l.forward == runsIn) ~= keepInto and hasAny(l, M.TRACK) then
@@ -357,7 +362,8 @@ function M.findApproaches(api, info)
 			local p1 = nodePos(api, tonumber(try(function() return be.node1 end)))
 			local runsIn = p0 and p1 and M.approachDirection(info.m, p0, p1)
 			if runsIn ~= nil then
-				out[#out + 1] = { edge = e, runsIn = runsIn, lanes = M.plainLanes(api, try(function() return be.laneConfigs end)) }
+				out[#out + 1] = { edge = e, runsIn = runsIn, lanes = M.plainLanes(api, try(function() return be.laneConfigs end)),
+					nodes = { tonumber(be.node0), tonumber(be.node1) } }
 			end
 		end
 	end
@@ -483,6 +489,31 @@ function M.send(api, proposal, done)
 	api.cmd.sendCommand(api.cmd.makeWorldBuildProposalCmd(proposal, M.context(api), false, false), function(res, success)
 		if done then done(success == true, M.answerText(res)) end
 	end)
+end
+
+-- After a build the engine answered yes to: the new edges between the
+-- planned edges' nodes, read again; the ones that still have the track on
+-- the side not chosen (the engine may lay lanes anew, as it did the
+-- copies' TRAM lanes on the construction's build [measured TC5]: then the
+-- answer was yes but nothing changed). Returns a list of edge ids.
+function M.stillBoth(api, plan)
+	local out = {}
+	for _, item in ipairs(plan.edges) do
+		local old = item.nodes
+		for _, e in ipairs(old and list(try(function() return api.engine.system.streetSystem.getNodeStreetSegments(old[1]) end)) or {}) do
+			local be = comp(api, e, "BASE_EDGE")
+			local n0 = be and tonumber(try(function() return be.node0 end))
+			local n1 = be and tonumber(try(function() return be.node1 end))
+			if be and ((n0 == old[1] and n1 == old[2]) or (n0 == old[2] and n1 == old[1])) then
+				local runsIn = item.runsIn
+				if n0 ~= old[1] then runsIn = not runsIn end
+				local strip = M.lanesToStrip(M.plainLanes(api, try(function() return be.laneConfigs end)), plan.choice.tram,
+					plan.choice.side, runsIn)
+				if #strip > 0 then out[#out + 1] = tonumber(e) end
+			end
+		end
+	end
+	return out
 end
 
 -- Short words for a plan, for the log and the e2e script.
