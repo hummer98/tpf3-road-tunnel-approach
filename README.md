@@ -80,6 +80,8 @@ Start a new game with this mod.
 | Portal cover length | 12–24 m in 1 m steps: the whole length of the portal cover, which always starts 6 m in front of the portal; 18 m reaches 12 m past the portal; even the shortest covers the top of the game's tunnel portal | 18 m (see the mod setting below) |
 | Traffic direction | Into tunnel / Out of tunnel: one-way highways only; picks which way traffic flows on the street that snaps | Into tunnel |
 | Traffic side | Right-hand / Left-hand: set it to your game's driving side; only matters for parallel one-way highways | Right-hand |
+| Tram track | None / Both / Right / Left: a tram track on the flat approach, the descent and the tunnel stub, on the same lane all the way. Both: the outer lane of each direction, as the base game's tram streets have it. Right / Left: only the lane on that side, facing the tunnel (on a one-way highway, facing the way its traffic runs); which lane that is follows Traffic side | None |
+| Catenary | Yes / No: the overhead wire over the tram track; without it only trams that need no wire can run. No effect without a track | Yes |
 | Slope curvature | Shallow, Gentle, Normal, Steep, Very steep: the shape of the descent | Normal |
 | Ground slope along | −20% to +20% in 1% steps: rise of the ground toward the tunnel (negative = it falls toward the tunnel) | 0% |
 | Ground slope across | −20% to +20% in 1% steps: rise of the ground to the right when facing the tunnel (negative = the left side is higher) | 0% |
@@ -231,6 +233,8 @@ coping's outer edge + half the side street):
 | Underground depth | 13–25 m in 1 m steps | 16 m |
 | Traffic direction | Into tunnel / Out of tunnel; the highway centre only | Into tunnel |
 | Traffic side | Right-hand / Left-hand: set it to your game's driving side; it sets which way each side street runs, so the sidewalk is on the outside | Right-hand |
+| Tram track | None / Both / Right / Left: on the centre's flat approach, descent and tunnel stub, as on the full-width ramp; the side streets get none | None |
+| Catenary | Yes / No, as on the full-width ramp | Yes |
 | Slope curvature | Shallow, Gentle, Normal, Steep, Very steep | Normal |
 | Ground slope along | −20% to +20% in 1% steps | 0% |
 | Ground slope across | −20% to +20% in 1% steps | 0% |
@@ -250,8 +254,9 @@ and road tool, left-hand traffic, sloped ground.
 - Removing it gives a warning (`severityRemove: Warning`): placed ramps are
   constructions of this mod (`ramp.con` and `median.con`, with their own
   wall, coping and cover models), so a save that has them depends on the mod.
-  The median's side streets, the descents' streets and the full-width
-  ramp's street without sidewalks are this mod's street types; the other
+  The median's side streets, the descents' streets, the streets with a tram
+  track (copies of the others) and the full-width ramp's street without
+  sidewalks are this mod's street types; the other
   streets and the tunnel are vanilla types.
 - Not `cosmetic`: it adds a construction, so the game treats it as a gameplay
   mod.
@@ -292,6 +297,7 @@ and road tool, left-hand traffic, sloped ground.
 | `tools/wall_models.py` | Writes the wall models (`--check` compares them with the files) |
 | `tools/cover_range.py` | Writes the Portal cover length range (`LID_MIN`, `LID_MAX`, `LID_DEFAULT` in `content/road_tunnel_ramp/ramp_geometry.lua`) into `mod.json`'s mod setting and the ranges in this README, the mod.io texts and the changelog's Unreleased section; the sliders read it themselves. To change the lower end, change `LID_MIN` and run it (`--check` compares) |
 | `strings.json` | Build-menu texts in the game's 13 languages; street names follow the base game's own |
+| `tools/make_tram_templates.py` | Writes the tram copies of the streets (`content/road_tunnel_ramp/streets/tram_*`, 90 files: each street and descent with the track on both outer car lanes, the last or the first, with or without catenary) from the base game's `street.zip` and the mod's own templates (`--check` compares) |
 | `_metadata/modinfo.json` | Name, summary and description for the game's mod list and the in-game mod.io upload (one text for all languages, so "English / 日本語") |
 | `_metadata/0.png` | Cover image (required by the in-game uploader) |
 | `docs/modio_description.md` | Description for the mod.io web page |
@@ -396,6 +402,8 @@ revision is what lets `stage.py` accept the update. The tests fail when
 | ポータル天蓋の長さ | 12〜24 m、1 m 刻み。ポータル天蓋の全体の長さで、天蓋はいつも坑口の 6 m 手前から始まります。18 m で坑口から 12 m 先まで。いちばん短くしても、ゲームのトンネルの坑口の上の面は天蓋で隠れます | 18 m（下の MOD の設定で変えられます） |
 | 進行方向 | トンネルへ下る／トンネルから上る。一方通行の高速道路だけ。接続する車道の交通の向きを選びます | トンネルへ下る |
 | 通行区分 | 右側通行／左側通行。ゲームの通行区分に合わせます。一方通行の高速道路を並べたときだけ効きます | 右側通行 |
+| トラム線路 | なし／両方／右／左。手前の平らな道路・下り坂・底のトンネルに、同じ車線でトラムの線路を通します。両方：各方向の外側の車線（バニラのトラム線路付きの道路と同じ）。右・左：トンネルを向いて、その側の車線だけ（一方通行の高速道路では、車の進む向きに見て）。どの車線になるかは「通行区分」で決まります | なし |
+| 架線 | あり／なし。トラムの線路の上の架線。なしでは、架線の要らないトラムだけが走れます。線路がないときは効きません | あり |
 | 勾配カーブ | ゆるい・なだらか・標準・急・非常に急。下り坂の形 | 標準 |
 | 地面の縦断勾配 | −20〜+20%、1% 刻み。トンネルへ向かって上る地面が＋（下る地面は−） | 0% |
 | 地面の横断勾配 | −20〜+20%、1% 刻み。トンネルを向いて右側が高いと＋（左側が高いと−） | 0% |
@@ -447,6 +455,8 @@ MOD の設定（新しいゲームを始めるときの MOD の設定）：**ポ
 | 地下深度 | 13〜25 m、1 m 刻み | 16 m |
 | 進行方向 | トンネルへ下る／トンネルから上る。中央が高速道路のときだけ | トンネルへ下る |
 | 通行区分 | 右側通行／左側通行。ゲームの通行区分に合わせます。各側道の向きが決まり、歩道が外側になります | 右側通行 |
+| トラム線路 | なし／両方／右／左。中央の道の手前の平らな道路・下り坂・底のトンネルに、全幅のランプと同じく通します。側道には付きません | なし |
+| 架線 | あり／なし（全幅のランプと同じ） | あり |
 | 勾配カーブ | ゆるい・なだらか・標準・急・非常に急 | 標準 |
 | 地面の縦断勾配 | −20〜+20%、1% 刻み | 0% |
 | 地面の横断勾配 | −20〜+20%、1% 刻み | 0% |
@@ -456,7 +466,7 @@ MOD の設定（新しいゲームを始めるときの MOD の設定）：**ポ
 ### 互換性
 
 - 新しいゲームで始めてください。
-- 外すときは警告が出ます（`severityRemove: Warning`）。置いたランプはこの MOD の建設物（`ramp.con` と `median.con`、その擁壁・笠石・天蓋のモデル）なので、それがあるセーブはこの MOD に依存します。道路中央の地下進入路の側道と、下り坂の道路と、全幅のランプの車専用の道路は、この MOD の道路です。ほかの道路とトンネルはバニラのものです。
+- 外すときは警告が出ます（`severityRemove: Warning`）。置いたランプはこの MOD の建設物（`ramp.con` と `median.con`、その擁壁・笠石・天蓋のモデル）なので、それがあるセーブはこの MOD に依存します。道路中央の地下進入路の側道と、下り坂の道路と、トラムの線路付きの道路（ほかの道路の写し）と、全幅のランプの車専用の道路は、この MOD の道路です。ほかの道路とトンネルはバニラのものです。
 - `cosmetic` ではありません。建設物を加えるので、ゲームはゲームプレイに関わる MOD として扱います。
 - 配置カーソルの最大勾配と地面の勾配の行は、バニラの建設アクションを包んで足しています。他の MOD（Construction Altitude Tooltip など）が同じ場所に足す行はそのまま残ります。
 - 依存する MOD はありません。

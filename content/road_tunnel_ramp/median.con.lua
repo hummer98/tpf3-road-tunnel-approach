@@ -167,6 +167,32 @@ return {
 			defaultIndex = 1,
 		},
 		{
+			-- Tram track on the flat approach, the descent and the tunnel stub,
+			-- on one lane (ramp_geometry.lua M.tramLanes): none (initial), the
+			-- outer lane of both directions, or only the right or left one,
+			-- facing the way the edges run. Short labels (the user's own list:
+			-- 「高架線 あり・なし／トラム 両方・右・左・なし」).
+			key = "rtr_tram",
+			name = _("rtr_tram_name"),
+			tooltip = _("rtr_tram_tooltip"),
+			uiType = "Button",
+			values = { _("rtr_tram_none"), _("rtr_tram_both"), _("rtr_tram_right"), _("rtr_tram_left") },
+			numbers = { 1, 2, 3, 4 },
+			defaultIndex = 1,
+		},
+		{
+			-- The track's catenary: with it the base game's electric trams,
+			-- without it trams that need none (M.TRAM_POWER). Read only
+			-- with a track.
+			key = "rtr_tram_wire",
+			name = _("rtr_tram_wire_name"),
+			tooltip = _("rtr_tram_wire_tooltip"),
+			uiType = "Button",
+			values = { _("rtr_tram_wire_yes"), _("rtr_tram_wire_no") },
+			numbers = { 1, 2 },
+			defaultIndex = 1,
+		},
+		{
 			key = "rtr_curvature",
 			name = _("rtr_curvature_name"),
 			tooltip = _("rtr_curvature_tooltip"),

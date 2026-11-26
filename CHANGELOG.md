@@ -9,6 +9,16 @@ The first public release is 1.0.0 (`revision` 10000).
 
 ## [Unreleased]
 
+### Added
+- **Tram track** and **Catenary** (both constructions): a tram track on
+  the flat approach, the descent and the tunnel stub, on the same lane all
+  the way: None (initial setting), Both (the outer lane of each direction,
+  as the base game's tram streets), or only the Right or Left lane, facing
+  the tunnel (on a one-way highway, facing the way its traffic runs; which
+  lane follows Traffic side). Catenary Yes (initial setting) or No, for
+  trams that need no wire. On the Median Tunnel Approach the centre gets
+  the track, the side streets none.
+
 ### Fixed
 - **Portal cover length** is now 12–24 m in 1 m steps (1.1.0 went down to
   6 m). With the shorter covers, the top of the game's tunnel portal

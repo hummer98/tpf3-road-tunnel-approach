@@ -20,7 +20,8 @@
 -- A spec: street = { ref, width, oneWay, descent }, count, L, D, curvature,
 -- direction, side, approach, gx, gy, wall (one of M.WALLS), lidLength (the
 -- portal cover's whole length; nil counts as M.LID_DEFAULT), tunnelRef,
--- tunnelHeight, handOver (nil counts as true), approachDepotStyle (read
+-- tunnelHeight, tramLanes / tramPower (M.tramRef; nil lanes: no track),
+-- handOver (nil counts as true), approachDepotStyle (read
 -- only when handOver is false; nil counts as false). A construction building on
 -- this module starts from M.spec(cap, p) and replaces street and count,
 -- so the other fields keep the menu's defaults and clamps (the median
@@ -200,6 +201,48 @@ M.LID_BEHIND = 6
 -- to 24m (20% down) [review 2026-11-26, offline layout].
 M.HOLD_AHEAD = 30
 
+-- Tram track (rtr_tram, rtr_tram_wire; both constructions). The user:
+-- 「今は設置時にトラム路線を指定できますか？」「高架線 あり・なし／トラム
+-- 両方・右・左・なし／みたいな選択ですかね」, and earlier 「トラムの前提が
+-- 間違ってます。デフォルトは外側ですが任意の車線につけれます」. The track is
+-- laid on the flat approach, the descent and the tunnel stub alike, on one
+-- lane: the outer car lane of a direction, as the base game's tram streets
+-- have it. It comes with the street: each street is laid as its copy with
+-- TRAM (and ELECTRIC_TRAM with the catenary) on those lanes
+-- (streets/tram_*, written by tools/make_tram_templates.py), as the base
+-- game's tram streets carry it; tramTrackType on the edges put it on both
+-- directions' outer lanes and on no tunnel edge [measured 2026-11-23 PT
+-- E1] and cannot pick a side [source: the edge's params, NO / YES /
+-- ELECTRIC; busAndTramRight is one flag per template].
+-- M.TRAM: rtr_tram 1 none, 2 both, 3 right, 4 left. lanes of a copy:
+-- b both outer car lanes, f the last car lane, k the first (the copies'
+-- lane sets, independent of the traffic side). Right and left are seen
+-- facing the way the street's edges run (into the tunnel for a two-way
+-- street, the way traffic runs on a one-way one): with right-hand traffic
+-- the forward lanes lie on the right, so right is f; with left-hand
+-- traffic the game lays them on the left [guess: as the layout of the
+-- one-way carriageways below assumes; e2e], so right is k.
+local TRAM_DIR = "road_tunnel_ramp::/road_tunnel_ramp/streets/tram_"
+M.TRAM_POWER = { "etram", "tram" }  -- rtr_tram_wire 1 with catenary (initial), 2 without
+
+-- The copy of a street resource with the track on lanes (b / f / k) and
+-- power (tram / etram): the base streets' and this mod's by their file
+-- stem. nil lanes is the street itself.
+function M.tramRef(ref, lanes, power)
+	if not lanes then return ref end
+	local stem = ref:match("([%w_]+)%.street_template$")
+	assert(stem, "ramp_geometry: no street template stem in " .. tostring(ref))
+	return TRAM_DIR .. stem .. "_" .. lanes .. "_" .. (power or "etram") .. ".street_template"
+end
+
+-- The copies' lanes for rtr_tram (1-4) and the traffic side (1 right-hand, 2 left).
+function M.tramLanes(tram, side)
+	if tram == 2 then return "b" end
+	if tram == 3 then return side == 2 and "k" or "f" end
+	if tram == 4 then return side == 2 and "f" or "k" end
+	return nil
+end
+
 function M.value(p, key, default, lo, hi)
 	local n = tonumber(p[key])
 	if not n or n ~= n then n = default end
@@ -239,9 +282,13 @@ function M.spec(cap, p)
 	if street.variants then
 		local k = math.floor(value(p, "rtr_car_only_variant", 1, 1, #street.variants + 1) + 0.5)
 		if k > 1 then
-			street = { ref = street.variants[k - 1], width = street.width, oneWay = street.oneWay }
+			street = { ref = street.variants[k - 1], width = street.width, oneWay = street.oneWay, variant = true }
 		end
 	end
+	local side = math.floor(value(p, "rtr_side", 1, 1, 2) + 0.5)
+	-- (the e2e's stand-ins have no tram copies: no track on them)
+	local tramLanes = not street.variant and M.tramLanes(math.floor(value(p, "rtr_tram", 1, 1, 4) + 0.5), side) or nil
+	local tramPower = M.TRAM_POWER[math.floor(value(p, "rtr_tram_wire", 1, 1, 2) + 0.5)]
 	-- 0.5 and up rounds to 1, the threshold the 0 / 1 switch had.
 	local approachMode = math.floor(value(p, "rtr_approach_hand_over", 1, 0, 2) + 0.5)
 	return {
@@ -255,7 +302,10 @@ function M.spec(cap, p)
 		-- 1 = traffic descends into the tunnel, 2 = climbs out of it.
 		direction = math.floor(value(p, "rtr_direction", 1, 1, 2) + 0.5),
 		-- 1 = right-hand traffic (game default), 2 = left-hand.
-		side = math.floor(value(p, "rtr_side", 1, 1, 2) + 0.5),
+		side = side,
+		-- tram track: the copies' lanes (nil: none) and power (M.tramRef)
+		tramLanes = tramLanes,
+		tramPower = tramPower,
 		approach = value(p, "rtr_approach", 20, 2, 50),
 		-- The menu starts on thin (rtr_wall defaultIndex); a spec read
 		-- without the key (the tests written before it) keeps the thick
@@ -573,8 +623,8 @@ function M.build(s)
 	-- chosen street so a tunnel of that type, laid on from its end, meets
 	-- its own type there, as before: at a construction's kept node a street
 	-- of another type let no car through [measured 2026-11-23 PC, PD].
-	local streetRef = s.street.ref
-	local descentRef = g.descentRef
+	local streetRef = M.tramRef(s.street.ref, s.tramLanes, s.tramPower)
+	local descentRef = M.tramRef(g.descentRef, s.tramLanes, s.tramPower)
 	local edgeRef = streetRef
 	local tunnelRef = s.tunnelRef
 	local L, D, count, approach, runout = g.L, g.D, g.count, g.approach, g.runout

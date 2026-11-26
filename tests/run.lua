@@ -2025,11 +2025,11 @@ local bodyCases = {
 	{ rtr_car_only_variant = 3, rtr_ground_along = 3 },
 }
 
-test("median: con offers entry, centre, wall, length, approach, depth, direction, side, curvature and the slopes, nothing else", function()
+test("median: con offers entry, centre, wall, length, approach, depth, direction, side, tram, catenary, curvature and the slopes, nothing else", function()
 	local keys = {}
 	for _, prm in ipairs(medianSpec.params) do keys[#keys + 1] = prm.key end
 	eq(table.concat(keys, " "), "rtr_median_entry rtr_street rtr_wall rtr_cover_length rtr_length rtr_approach rtr_depth "
-		.. "rtr_direction rtr_side rtr_curvature rtr_ground_along rtr_ground_across", "menu keys")
+		.. "rtr_direction rtr_side rtr_tram rtr_tram_wire rtr_curvature rtr_ground_along rtr_ground_across", "menu keys")
 	local function pick(prm) return prm.numbers[prm.defaultIndex] end
 	eq(table.concat(medianParam.rtr_median_entry.numbers, ","), "2,4,6", "entries")
 	eq(pick(medianParam.rtr_median_entry), 4, "entry 4 initially")
@@ -5451,6 +5451,225 @@ do
 		local d = geometry.descentWall(geometry.WALLS[1], 2.5)
 		near(d.half * 2, 1.0 + 2.5, 1e-12, "thin wall 3.5m thick for a town street")
 		near(d.scale * 0.45, d.half * 2, 1e-12, "the model's scale")
+	end)
+end
+
+------------------------------------------------------------------------
+-- Tram track (2026-11-26; the user: 「高架線 あり・なし／トラム 両方・
+-- 右・左・なし／みたいな選択ですかね」, 「デフォルトは外側ですが任意の車線に
+-- つけれます」). The track comes with the street (streets/tram_*, written
+-- by tools/make_tram_templates.py); the edges carry no tramTrackType.
+------------------------------------------------------------------------
+do
+	local geometry = rampGeo
+	local cap = defaultCap()
+	local function lanesWith(t, mode)
+		local out = {}
+		for k, lane in ipairs(t.laneConfigs) do if hasMode(lane, mode) then out[#out + 1] = k end end
+		return out
+	end
+	local function carLanes(t)
+		local out = {}
+		for k, lane in ipairs(t.laneConfigs) do if hasMode(lane, "CAR") then out[#out + 1] = k end end
+		return out
+	end
+	-- every street a ramp or median edge can be laid with
+	local function sources()
+		local out = {}
+		for i = 1, 8 do
+			out[#out + 1] = cap.streets[i].ref
+			if cap.streets[i].descent then out[#out + 1] = cap.streets[i].descent.ref end
+		end
+		return out
+	end
+	-- a base street's template: from street.zip when there, else nil
+	local STREET_ZIP = os.getenv("HOME") .. "/.local/share/Steam/steamapps/common/Transport Fever 3/base/content/infrastructure/street.zip"
+	local function sourceTemplate(ref)
+		if ref:find("^road_tunnel_ramp::") then return templateOf(ref) end
+		local sub = ref:match("^::/infrastructure/street(.*)$")
+		local fh = io.open(STREET_ZIP, "rb")
+		if not (sub and fh) then return nil end
+		fh:close()
+		local p = assert(io.popen(string.format("unzip -p %q %q 2>/dev/null", STREET_ZIP, "street" .. sub .. ".lua")))
+		local src = p:read("*a"); p:close()
+		if src == "" then return nil end
+		local env = setmetatable({ _ = function(x) return x end }, { __index = _G })
+		local chunk = assert(loadstring(src, sub)); setfenv(chunk, env); chunk()
+		return env.data()
+	end
+
+	test("tram: rtr_tram and rtr_tram_wire pick the copies' lanes and power (both, right, left by traffic side; none)", function()
+		eq(geometry.tramLanes(1, 1), nil, "none")
+		eq(geometry.tramLanes(2, 1), "b", "both"); eq(geometry.tramLanes(2, 2), "b", "both, left-hand")
+		eq(geometry.tramLanes(3, 1), "f", "right, right-hand"); eq(geometry.tramLanes(4, 1), "k", "left, right-hand")
+		eq(geometry.tramLanes(3, 2), "k", "right, left-hand"); eq(geometry.tramLanes(4, 2), "f", "left, left-hand")
+		local s = geometry.spec(cap, {})
+		eq(s.tramLanes, nil, "no track initially")
+		s = geometry.spec(cap, { rtr_tram = 3 })
+		eq(s.tramLanes, "f", "right"); eq(s.tramPower, "etram", "with catenary initially")
+		eq(geometry.spec(cap, { rtr_tram = 3, rtr_tram_wire = 2 }).tramPower, "tram", "without")
+		-- junk reads as none / with catenary; the e2e's stand-ins get none
+		eq(geometry.spec(cap, { rtr_tram = "x" }).tramLanes, nil, "junk")
+		eq(geometry.spec(cap, { rtr_tram = 2, rtr_tram_wire = "x" }).tramPower, "etram", "junk wire")
+		eq(geometry.spec(cap, { rtr_street = 8, rtr_car_only_variant = 2, rtr_tram = 2 }).tramLanes, nil, "stand-in")
+		eq(geometry.tramRef("::/infrastructure/street/town/town_new_small.street_template", "f", "tram"),
+			"road_tunnel_ramp::/road_tunnel_ramp/streets/tram_town_new_small_f_tram.street_template", "name")
+		eq(geometry.tramRef("x.street_template", nil, "tram"), "x.street_template", "no lanes: the street itself")
+		-- both menus offer them alike, none and with catenary initially
+		for _, spec in ipairs({ loadData("/content/road_tunnel_ramp/ramp.con.lua"), medianSpec }) do
+			local found = {}
+			for _, prm in ipairs(spec.params) do found[prm.key] = prm end
+			eq(table.concat(found.rtr_tram.numbers, ","), "1,2,3,4", "tram numbers")
+			eq(found.rtr_tram.numbers[found.rtr_tram.defaultIndex], 1, "none initially")
+			eq(table.concat(found.rtr_tram_wire.numbers, ","), "1,2", "wire numbers")
+			eq(found.rtr_tram_wire.numbers[found.rtr_tram_wire.defaultIndex], 1, "with catenary initially")
+		end
+	end)
+
+	test("tram: every copy is its street with TRAM (and ELECTRIC_TRAM) on the outer car lanes asked for, hidden, the rest as it was", function()
+		local n, compared = 0, 0
+		for _, ref in ipairs(sources()) do
+			for _, lanes in ipairs({ "b", "f", "k" }) do
+				for _, power in ipairs({ "tram", "etram" }) do
+					local copyRef = geometry.tramRef(ref, lanes, power)
+					local t = templateOf(copyRef)
+					local cars = carLanes(t)
+					local want = ({ b = { cars[1], cars[#cars] }, f = { cars[#cars] }, k = { cars[1] } })[lanes]
+					if want[1] == want[2] then want = { want[1] } end
+					local tag = copyRef:match("(tram_[%w_]+)%.street_template$")
+					eq(table.concat(lanesWith(t, "TRAM"), ","), table.concat(want, ","), tag .. " TRAM lanes")
+					eq(table.concat(lanesWith(t, "ELECTRIC_TRAM"), ","), power == "etram" and table.concat(want, ",") or "", tag .. " catenary")
+					eq(t.menuCategory, nil, tag .. " menu"); eq(t.simBuildable, nil, tag .. " towns")
+					eq(t.availability.yearFrom, 0, tag); eq(t.availability.yearTo, 0, tag)
+					eq(t.initiallyLocked, true, tag .. " locked")
+					local src = sourceTemplate(ref)
+					if src then
+						compared = compared + 1
+						eq(#t.laneConfigs, #src.laneConfigs, tag .. " lanes")
+						for k, lane in ipairs(src.laneConfigs) do
+							for _, f in ipairs({ "forward", "width", "offset", "height", "speed" }) do
+								eq(t.laneConfigs[k][f], lane[f], tag .. " lane " .. k .. " " .. f)
+							end
+							local modes = {}
+							for _, m in ipairs(t.laneConfigs[k].transportModes) do
+								if m ~= "TRAM" and m ~= "ELECTRIC_TRAM" then modes[#modes + 1] = m end
+							end
+							local ok, why = sameValue(modes, lane.transportModes, tag .. " lane " .. k)
+							assert(ok, why)
+						end
+						eq(t.streetStyle, src.streetStyle, tag .. " style")
+						eq(t.description.name, src.description.name, tag .. " name")
+					end
+					n = n + 1
+				end
+			end
+		end
+		eq(n, 90, "copies")
+		if compared < n then print("     (base part skipped for " .. (n - compared) .. ": street.zip not found)") end
+	end)
+
+	-- Where a lane lies across its street: the centre of lane k from the
+	-- street's centre line, as the lanes are laid side by side.
+	local function laneCentre(t, k)
+		local total = laneWidth(t)
+		local y = -total * 0.5
+		for i = 1, k - 1 do y = y + t.laneConfigs[i].width end
+		return y + t.laneConfigs[k].width * 0.5
+	end
+
+	test("tram: every street, count, side, direction, track and catenary: approach, descent and stub carry it on the same lane", function()
+		local n = 0
+		for i = 1, 8 do
+			local street = cap.streets[i]
+			for count = 1, 3 do
+				for side = 1, 2 do
+					for direction = 1, 2 do
+						for tram = 1, 4 do
+							for wire = 1, 2 do
+								local p = { rtr_street = i, rtr_count = count, rtr_side = side, rtr_direction = direction,
+									rtr_tram = tram, rtr_tram_wire = wire, rtr_length = 100 }
+								local r = script.updateFn(cap, p)
+								local lanes = geometry.tramLanes(tram, side)
+								local power = geometry.TRAM_POWER[wire]
+								local tag = string.format("street %d count %d side %d dir %d tram %d wire %d", i, count, side, direction, tram, wire)
+								local places = {}
+								for k, e in ipairs(r.edgeLists) do
+									eq(e.params.tramTrackType, nil, tag .. " edge " .. k .. ": no tramTrackType")
+									local want = geometry.tramRef(expectedRefOf(e, street, 100), lanes, power)
+									eq(e.params.type, want, tag .. " edge " .. k)
+									local t = templateOf(e.params.type:find("^road_tunnel_ramp::") and e.params.type
+										or geometry.tramRef(e.params.type, "b", "tram"))
+									local tr = lanesWith(t, "TRAM")
+									if not lanes then
+										if e.params.type:find("^road_tunnel_ramp::") then eq(#tr, 0, tag .. " no track") end
+									else
+										assert(#tr >= 1, tag .. " edge " .. k .. " track")
+										local pos = {}
+										for _, l in ipairs(tr) do
+											pos[#pos + 1] = string.format("%.3f%s", laneCentre(t, l), tostring(t.laneConfigs[l].forward))
+										end
+										places[table.concat(pos, " ")] = true
+										eq(#lanesWith(t, "ELECTRIC_TRAM") > 0, wire == 1, tag .. " catenary")
+									end
+								end
+								if lanes then
+									local k = 0
+									for _ in pairs(places) do k = k + 1 end
+									eq(k, 1, tag .. " one lane all the way (the same place across the street)")
+								end
+								n = n + 1
+							end
+						end
+					end
+				end
+			end
+		end
+		assert(n == 8 * 3 * 2 * 2 * 4 * 2, "cases " .. n)
+	end)
+
+	test("tram: right is the lane on the right facing the tunnel with right-hand traffic (the forward one), left the other", function()
+		-- town_new_small: the backward car lane is lane 2, the forward lane 3
+		local function trackOf(p)
+			local r = script.updateFn(cap, p)
+			return lanesWith(templateOf(r.edgeLists[2].params.type), "TRAM")
+		end
+		eq(table.concat(trackOf({ rtr_street = 3, rtr_tram = 3 }), ","), "3", "right")
+		eq(table.concat(trackOf({ rtr_street = 3, rtr_tram = 4 }), ","), "2", "left")
+		eq(table.concat(trackOf({ rtr_street = 3, rtr_tram = 2 }), ","), "2,3", "both")
+		eq(table.concat(trackOf({ rtr_street = 3, rtr_tram = 3, rtr_side = 2 }), ","), "2", "right, left-hand traffic")
+		-- the Large Street: the outer lanes, not the inner ones
+		eq(table.concat(trackOf({ rtr_street = 7, rtr_tram = 2 }), ","), "2,7", "Large Street both")
+	end)
+
+	test("tram: no track builds exactly what it did (ramp and median)", function()
+		for i = 1, 8 do
+			local ok, why = sameValue(script.updateFn(cap, { rtr_street = i, rtr_tram = 1, rtr_tram_wire = 2 }),
+				script.updateFn(cap, { rtr_street = i }), "street " .. i)
+			assert(ok, why)
+		end
+		for _, c in ipairs(medianGeo.CENTRE_ORDER) do
+			local ok, why = sameValue(median.updateFn(medianCap, { rtr_street = c, rtr_tram = 1 }),
+				median.updateFn(medianCap, { rtr_street = c }), "centre " .. c)
+			assert(ok, why)
+		end
+	end)
+
+	test("tram: on the median the centre carries the track, the side streets do not", function()
+		for _, c in ipairs(medianGeo.CENTRE_ORDER) do
+			local r = median.updateFn(medianCap, { rtr_street = c, rtr_tram = 2 })
+			local r0 = median.updateFn(medianCap, { rtr_street = c })
+			local tracks = 0
+			for k, e in ipairs(r.edgeLists) do
+				if e.params.type:find("median_") then
+					local ok, why = sameValue(e, r0.edgeLists[k], "centre " .. c .. " side edge " .. k)
+					assert(ok, why)
+				else
+					assert(e.params.type:find("streets/tram_"), "centre " .. c .. " edge " .. k .. " " .. e.params.type)
+					tracks = tracks + 1
+				end
+			end
+			assert(tracks >= 10, "centre " .. c)
+		end
 	end)
 end
 
