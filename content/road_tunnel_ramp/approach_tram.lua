@@ -39,6 +39,10 @@
 -- and written as a list of 16 booleans in the enum's order on a copy of the
 -- lane read out of a fresh segment, and read back, as Lane tools does
 -- [source: roads/lanes.lua ownLane, made]; the order is type.d.tl's.
+-- That way raised std::exception in the engine in TC7 [measured
+-- 2026-11-26], so it is tried after the copy template's laneConfigs (the
+-- track on the chosen lane only, as electrify.tl takes a template's):
+-- M.VARIANTS, M.firstPassing.
 --
 -- Nothing is done (the track stays on both sides) when: Tram track is not
 -- Right or Left, the approach is kept in the construction (the e2e's
@@ -50,6 +54,8 @@
 --
 -- Engine-free but for the functions that take `api` (the game's, or the
 -- tests' stand-in), so the choice and the proposal are tested offline.
+
+local geometry = require "road_tunnel_ramp::/road_tunnel_ramp/ramp_geometry.lua"
 
 local M = {}
 
@@ -395,7 +401,7 @@ function M.plan(api, con)
 		if #notes > 0 then return nil, table.concat(notes, "; "), true end
 		return nil, "nothing to take off", false
 	end
-	return { construction = info.entity, choice = choice, edges = edges, notes = notes }
+	return { construction = info.entity, choice = choice, params = info.params, edges = edges, notes = notes }
 end
 
 -- A copy of lane lc with the track modes off (the others as they were),
@@ -416,11 +422,78 @@ function M.stripped(api, lc, holders)
 	return own
 end
 
--- The proposal that lays each planned edge again with its strip lanes'
--- track off: the edge's own BASE_EDGE (nodes, curve, template, style),
--- BASE_EDGE_STREET and PLAYER_OWNED, as electrify.tl and Lane tools lay
--- one again. Returns the proposal and the old edges, or raises.
-function M.makeProposal(api, plan)
+-- The street template whose laneConfigs the approach is laid again with
+-- (opts.lanes "template"): the approach's own type when it is one of this
+-- mod's tram copies (it is laid as one: ramp_geometry M.build streetRef),
+-- else the copy of it for the choice (ramp_geometry M.tramRef). The copy
+-- has the track on the chosen lane only, as the descent's copies that kept
+-- it in game [measured TC5, TC7]; the base game's electrify.tl lays an
+-- edge again with a template's laneConfigs the same way [source].
+function M.templateName(roadTemplate, choice, params)
+	local name = tostring(roadTemplate or "")
+	if name:find("/streets/tram_", 1, true) then return name end
+	local lanes = geometry.tramLanes(choice.tram, choice.side, false)
+	local power = geometry.TRAM_POWER[value(params, "rtr_tram_wire", 1, 1, 2)]
+	local ok, ref = pcall(geometry.tramRef, name, lanes, power)
+	return ok and ref or nil
+end
+
+-- The template's laneConfigs for an item, or nil and why: only when they
+-- match the built edge lane for lane (as many, the same directions, the
+-- edge laid in the template's direction) and carry the track exactly on
+-- the lanes the edge keeps it on.
+function M.templateLanes(api, item, old, choice, params)
+	if not item.runsIn then return nil, "the edge runs out of the tunnel (not the template's direction)" end
+	local name = M.templateName(try(function() return old.roadTemplate end), choice, params)
+	if not name then return nil, "no template name" end
+	local rep = api.res and api.res.streetTemplateRep
+	local idx = rep and tonumber(try(function() return rep.find(name) end))
+	if not idx or idx < 0 then return nil, "template " .. name .. " not found" end
+	local t = try(function() return rep.get(idx) end)
+	local lanes = t and list(try(function() return t.laneConfigs end)) or {}
+	local built = item.lanes
+	if #lanes ~= #built then return nil, string.format("template %s has %d lanes, the edge %d", name, #lanes, #built) end
+	local strip = {}
+	for _, i in ipairs(item.strip) do strip[i] = true end
+	for i, lc in ipairs(lanes) do
+		local fwd = try(function() return lc.forward end)
+		if fwd ~= built[i].forward then return nil, "template " .. name .. ": lane " .. i .. " runs the other way" end
+		local track = false
+		for nm in pairs(M.TRACK) do if M.allows(api, lc, nm) then track = true end end
+		local want = false
+		for nm in pairs(M.TRACK) do if built[i].modes[nm] then want = true end end
+		if track ~= (want and not strip[i]) then return nil, "template " .. name .. ": lane " .. i .. " has the track where the edge keeps none or the other way" end
+	end
+	return lanes, name
+end
+
+-- The ways to lay an approach again, tried in this order (M.firstPassing)
+-- until the engine's makeProposalData takes one. TC7 [measured
+-- 2026-11-26]: the lanes written mode by mode ("written") with
+-- BASE_EDGE_STREET and PLAYER_OWNED copied raised std::exception in
+-- makeWorldBuildProposalCmd and makeProposalData, with "map_util.h:22 Get:
+-- Assertion it != map.end()" in the Sim Pool, while electrify.tl's way
+-- (the edge's own BASE_EDGE, a template's laneConfigs, nothing else) is
+-- the base game's [source]. Which part the engine refused is not known
+-- yet [guess]; tools/e2e/approach_tram_send.lua asks each part apart.
+M.VARIANTS = {
+	{ name = "template", lanes = "template", streetEdge = true, playerOwned = true },
+	{ name = "template-bare", lanes = "template" },
+	{ name = "written-bare", lanes = "written" },
+	{ name = "written", lanes = "written", streetEdge = true, playerOwned = true },
+}
+
+-- The proposal that lays each planned edge again with the track only on
+-- the chosen side: the edge's own BASE_EDGE (nodes, curve, template,
+-- style) with laneConfigs as opts.lanes says: "template"
+-- (M.templateLanes), "written" (its own, the strip lanes' track modes
+-- written off, as Lane tools writes a lane) or "same" (unchanged, only for
+-- the e2e's checks); with opts.streetEdge / opts.playerOwned its
+-- BASE_EDGE_STREET / PLAYER_OWNED copied, as Lane tools does. opts nil is
+-- the first of M.VARIANTS. Returns the proposal and the old edges, or
+-- raises.
+function M.makeProposal(api, plan, opts)
+	opts = opts or M.VARIANTS[1]
 	local proposal = api.type.SimpleProposal.new()
 	local adds, removes, holders = {}, {}, {}
 	for k, item in ipairs(plan.edges) do
@@ -429,9 +502,18 @@ function M.makeProposal(api, plan)
 		local strip = {}
 		for _, i in ipairs(item.strip) do strip[i] = true end
 		local lanes = list(old.laneConfigs)
-		local newLanes = {}
-		for i, lc in ipairs(lanes) do
-			newLanes[i] = strip[i] and M.stripped(api, lc, holders) or lc
+		local newLanes
+		if opts.lanes == "template" then
+			local tl, why = M.templateLanes(api, item, old, plan.choice, plan.params or {})
+			if not tl then error("edge " .. item.edge .. ": " .. tostring(why)) end
+			newLanes = tl
+		elseif opts.lanes == "same" then
+			newLanes = lanes
+		else
+			newLanes = {}
+			for i, lc in ipairs(lanes) do
+				newLanes[i] = strip[i] and M.stripped(api, lc, holders) or lc
+			end
 		end
 		local seg = api.type.SegmentAndEntity.new()
 		seg.entity = -k
@@ -440,24 +522,63 @@ function M.makeProposal(api, plan)
 		seg.comp.laneConfigs = newLanes
 		local back = list(seg.comp.laneConfigs)
 		if #back ~= #lanes then error("edge " .. item.edge .. ": the lanes were not written as asked") end
-		for i, lc in ipairs(back) do
-			for name in pairs(M.TRACK) do
-				local want = (not strip[i]) and M.allows(api, lanes[i], name)
-				if M.allows(api, lc, name) ~= want then
-					error(string.format("edge %d lane %d: %s not written as asked", item.edge, i, name))
+		if opts.lanes ~= "same" then
+			for i, lc in ipairs(back) do
+				local had = false
+				for name in pairs(M.TRACK) do if M.allows(api, lanes[i], name) then had = true end end
+				local has = false
+				for name in pairs(M.TRACK) do if M.allows(api, lc, name) then has = true end end
+				if has ~= (had and not strip[i]) then
+					error(string.format("edge %d lane %d: the track not written as asked", item.edge, i))
 				end
 			end
 		end
-		local streetEdge = comp(api, item.edge, "BASE_EDGE_STREET")
-		if streetEdge ~= nil then seg.streetEdge = streetEdge end
-		local owned = comp(api, item.edge, "PLAYER_OWNED")
-		if owned ~= nil then seg.playerOwned = owned end
+		if opts.streetEdge then
+			local streetEdge = comp(api, item.edge, "BASE_EDGE_STREET")
+			if streetEdge ~= nil then seg.streetEdge = streetEdge end
+		end
+		if opts.playerOwned then
+			local owned = comp(api, item.edge, "PLAYER_OWNED")
+			if owned ~= nil then seg.playerOwned = owned end
+		end
 		adds[k] = seg
 		removes[k] = item.edge
 	end
 	proposal.streetProposal.edgesToRemove = removes
 	proposal.streetProposal.edgesToAdd = adds
 	return proposal, removes
+end
+
+-- The engine's verdict on a proposal: nil when it takes it (no critical
+-- error), else why (a raise, or the critical messages).
+function M.verdict(api, proposal, context)
+	local ok, data = pcall(api.engine.util.proposal.makeProposalData, proposal, context)
+	if not ok then return "makeProposalData raised: " .. tostring(data) end
+	local critical, msg = false, ""
+	pcall(function()
+		critical = data.errorState.critical == true
+		for _, x in ipairs(list(data.errorState.messages)) do msg = msg .. " " .. tostring(x) end
+	end)
+	if critical then return "critical:" .. msg end
+	return nil
+end
+
+-- The first of M.VARIANTS the engine takes: proposal, its name, and the
+-- others' failures on the way; or nil and every failure.
+function M.firstPassing(api, plan, context)
+	local fails = {}
+	for _, v in ipairs(M.VARIANTS) do
+		local ok, proposal = pcall(M.makeProposal, api, plan, v)
+		local why
+		if not ok then
+			why = "not made: " .. tostring(proposal)
+		else
+			why = M.verdict(api, proposal, context)
+		end
+		if not why then return proposal, v.name, fails end
+		fails[#fails + 1] = v.name .. ": " .. why
+	end
+	return nil, nil, fails
 end
 
 -- As tf3ctl road's and the median branch's fork script's: nothing knocked down, the street

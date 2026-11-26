@@ -9,8 +9,8 @@
 --   python3 .../tf3ctl.py --owner mod-keeper eval --write --gs --file "$SCRATCH/send.lua"
 --
 -- __DRY__ 1: asks the engine (makeProposalData) and sends nothing; 0:
--- sends it. The answer: how far it went (stage), what it found and the
--- engine's verdict (dry) or "sent". The build's own answer comes in a
+-- sends it. The answer: how far it went (stage), what it found, the ways
+-- the engine did not take (fails) and the one it takes (way), and "sent". The build's own answer comes in a
 -- callback after this returns: it is logged ("[road_tunnel_ramp] tram
 -- approach (by hand): ..." in tf3ctl log) and kept in the module, which
 -- the next eval --gs may read (if eval --gs keeps the module between
@@ -48,26 +48,20 @@ local plan, whyPlan = tram.plan(api, CONSTRUCTION)
 if not plan then out.stage = "plan: " .. tostring(whyPlan); return out end
 out.plan = tram.describe(plan)
 
-local okP, proposal = pcall(tram.makeProposal, api, plan)
-if not okP then out.stage = "proposal not made: " .. tostring(proposal); return out end
+-- (the ways in order, as the game script tries them: approach_tram.lua
+-- M.VARIANTS; each one that the engine does not take is in fails)
+local proposal, way, fails = tram.firstPassing(api, plan, tram.context(api))
+out.fails = fails
+if not proposal then out.stage = "no way taken (see fails; tools/e2e/approach_tram_steps.lua for each step)"; return out end
+out.way = way
 out.stage = "proposal made"
 
 if DRY == 1 then
-	local okD, data = pcall(api.engine.util.proposal.makeProposalData, proposal, tram.context(api))
-	out.verdict = { asked = okD, critical = nil, messages = {} }
-	if okD then
-		pcall(function()
-			out.verdict.critical = data.errorState.critical == true
-			for _, x in ipairs(tram.list(data.errorState.messages)) do out.verdict.messages[#out.verdict.messages + 1] = tostring(x) end
-		end)
-	else
-		out.verdict.error = tostring(data)
-	end
-	out.stage = "dry run asked"
+	out.stage = "dry run: the engine takes \"" .. way .. "\""
 	return out
 end
 
-tram.lastManual = { construction = CONSTRUCTION, plan = out.plan, answer = "pending", at = os.time() }
+tram.lastManual = { construction = CONSTRUCTION, plan = out.plan, way = way, answer = "pending", at = os.time() }
 local okS, err = pcall(tram.send, api, proposal, function(success, msg)
 	tram.lastManual.answer = success and "built" or "refused"
 	tram.lastManual.messages = msg

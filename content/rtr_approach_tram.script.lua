@@ -17,8 +17,10 @@
 --    empties the list. The list lives in the state, not in this file's
 --    locals: update and handleEvent run in different Lua states [measured
 --    C4].
--- 3. handleEvent, rtr_approach_tram: finds the approach edges, and sends one
---    SimpleProposal that lays them again (edgesToRemove / edgesToAdd), with
+-- 3. handleEvent, rtr_approach_tram: finds the approach edges, asks the
+--    engine (makeProposalData) about the ways of laying them again in turn
+--    (approach_tram.lua M.VARIANTS: TC7's first way raised there), and sends
+--    the first it takes as one SimpleProposal (edgesToRemove / edgesToAdd), with
 --    a callback that logs a refusal [measured C3: a callback from
 --    handleEvent goes through].
 -- Only failures are logged; nothing to do (no track chosen, Both, already
@@ -146,24 +148,26 @@ local function lay(param)
 		return
 	end
 	for _, note in ipairs(plan.notes) do log("construction " .. con .. ": " .. note .. " (left as it is)") end
-	local okP, proposal = pcall(tram.makeProposal, api, plan)
-	if not okP then
-		return log("construction " .. con .. ": proposal not made, the track stays on both sides: " .. tostring(proposal))
-	end
+	-- (the ways of laying it again, in order, until the engine takes one:
+	-- approach_tram.lua M.VARIANTS; TC7's first way raised in the engine)
 	local what = tram.describe(plan)
+	local context = tram.context(api)
+	local proposal, way, fails = tram.firstPassing(api, plan, context)
+	if not proposal then
+		return log(string.format("construction %d (%s): no way taken, the track stays on both sides: %s", con, what,
+			table.concat(fails, " | ")))
+	end
 	if tonumber(param.dry_run) == 1 then
-		local okD, data = pcall(api.engine.util.proposal.makeProposalData, proposal, tram.context(api))
-		local msg = ""
-		pcall(function()
-			local es = data.errorState
-			if es.critical then msg = msg .. " critical" end
-			for _, x in ipairs(list(es.messages)) do msg = msg .. " " .. tostring(x) end
-		end)
-		return log(string.format("dry run, construction %d, %s: %s%s", con, what, okD and "asked" or ("failed " .. tostring(data)), msg))
+		return log(string.format("dry run, construction %d, %s: the engine takes \"%s\"%s", con, what, way,
+			#fails > 0 and (" (not: " .. table.concat(fails, " | ") .. ")") or ""))
+	end
+	-- (a way after the first is worth a line: the next e2e reads which)
+	if #fails > 0 then
+		log(string.format("construction %d: laid again the \"%s\" way (not: %s)", con, way, table.concat(fails, " | ")))
 	end
 	local okS, err = pcall(tram.send, api, proposal, function(success, msg)
 		if not success then
-			log(string.format("construction %d: refused (%s), the track stays on both sides:%s", con, what, msg))
+			log(string.format("construction %d: refused (%s, the \"%s\" way), the track stays on both sides:%s", con, what, way, msg))
 			return
 		end
 		local okV, left = pcall(tram.stillBoth, api, plan)

@@ -36,6 +36,15 @@ local function smallBoth()
 	return { lane(false, 0.15, 3, SW), lane(false, -0.5, 5, CAR_TRACK), lane(true, 0.5, 5, CAR_TRACK), lane(true, -0.15, 3, SW) }
 end
 
+-- This mod's tram copies of town_new_small (tools/make_tram_templates.py):
+-- the track on the last car lane (f) or the first (k).
+local COPY = "road_tunnel_ramp::/road_tunnel_ramp/streets/tram_town_new_small_%s_etram.street_template"
+local COPY_F, COPY_K = COPY:format("f"), COPY:format("k")
+local function copyLanes(which)
+	return { lane(false, 0.15, 3, SW), lane(false, -0.5, 5, which == "k" and CAR_TRACK or CAR),
+		lane(true, 0.5, 5, which == "f" and CAR_TRACK or CAR), lane(true, -0.15, 3, SW) }
+end
+
 -- An edge record whose laneConfigs are copied on write.
 local function edgeComp(t)
 	local store = deep(t)
@@ -68,6 +77,11 @@ local function fakeApi(world)
 		Vec3f = { new = function(x, y, z) return { x = x, y = y, z = z } end },
 		Box3 = { new = function(a, b) return { a, b } end },
 	}
+	local names = { COPY_F, COPY_K }
+	api.res = { streetTemplateRep = {
+		find = function(name) for i, n in ipairs(names) do if n == name then return i end end return -1 end,
+		get = function(i) return { laneConfigs = copyLanes(i == 1 and "f" or "k") } end,
+	} }
 	api.engine = {
 		getComponent = function(e, ct)
 			if ct == "BASE_EDGE" then return world.edges[e] and edgeComp(world.edges[e]) or nil end
@@ -116,7 +130,7 @@ local function world(opts)
 	local w = {
 		nodes = { [1] = at(-20, 0), [2] = at(0, 0), [3] = at(12.5, 0, -0.5), [4] = at(-40, 0) },
 		edges = {
-			[10] = { node0 = 1, node1 = 2, laneConfigs = opts.lanes or smallBoth(), roadTemplate = "town_new_small" },
+			[10] = { node0 = 1, node1 = 2, laneConfigs = opts.lanes or smallBoth(), roadTemplate = COPY_F },
 			[11] = { node0 = 2, node1 = 3, laneConfigs = smallBoth(), roadTemplate = "ramp_descent_town_small_f_etram" },
 			[12] = { node0 = 4, node1 = 1, laneConfigs = smallBoth(), roadTemplate = "town_new_small" },
 		},
@@ -266,7 +280,7 @@ test("approach tram: plan is quiet on a one-way approach, takes every street of 
 	local function at(x, y, z) return { x = 1000 - y, y = 2000 + x, z = 50 + (z or 0) } end
 	w.nodes[1], w.nodes[2] = at(-20, -8), at(0, -8)
 	w.nodes[5], w.nodes[6], w.nodes[7] = at(-20, 8), at(0, 8), at(12.5, 8, -0.5)
-	w.edges[13] = { node0 = 5, node1 = 6, laneConfigs = smallBoth(), roadTemplate = "town_new_small" }
+	w.edges[13] = { node0 = 5, node1 = 6, laneConfigs = smallBoth(), roadTemplate = COPY_F }
 	w.edges[14] = { node0 = 6, node1 = 7, laneConfigs = smallBoth(), roadTemplate = "ramp_descent" }
 	w.constructions[100].frozenEdges = { 11, 14 }
 	-- a median side street from x = 0 on, handed over, with a track on both sides
@@ -310,7 +324,7 @@ test("approach tram: makeProposal lays the approach again with the other side's 
 	local adds = proposal.streetProposal.edgesToAdd
 	eq(#adds, 1, "one added"); eq(adds[1].entity, -1, "new id"); eq(adds[1].type, 0, "street")
 	local c = adds[1].comp
-	eq(c.node0, 1, "node0 kept"); eq(c.node1, 2, "node1 kept"); eq(c.roadTemplate, "town_new_small", "template kept")
+	eq(c.node0, 1, "node0 kept"); eq(c.node1, 2, "node1 kept"); eq(c.roadTemplate, COPY_F, "template kept")
 	local lanes = c.laneConfigs
 	eq(#lanes, 4, "four lanes")
 	assert(not has(lanes[2], "TRAM") and not has(lanes[2], "ELECTRIC_TRAM"), "lane 2 track off")
@@ -321,6 +335,12 @@ test("approach tram: makeProposal lays the approach again with the other side's 
 	eq(adds[1].streetEdge.precedenceNode0, 0, "BASE_EDGE_STREET copied"); eq(adds[1].playerOwned.player, 7, "owner copied")
 	-- the world is untouched until the engine builds it
 	assert(w.edges[10].laneConfigs[2].transportModes[TM.TRAM], "world lane 2 still has its track")
+	-- the lanes written mode by mode (the third way) give the same lanes
+	local pw = tram.makeProposal(api, plan, tram.VARIANTS[3])
+	local lw = pw.streetProposal.edgesToAdd[1].comp.laneConfigs
+	assert(not has(lw[2], "TRAM") and has(lw[2], "CAR") and has(lw[3], "ELECTRIC_TRAM"), "written: lane 2 off, lane 3 kept")
+	eq(pw.streetProposal.edgesToAdd[1].streetEdge, nil, "bare: no BASE_EDGE_STREET")
+	eq(pw.streetProposal.edgesToAdd[1].playerOwned, nil, "bare: no PLAYER_OWNED")
 	-- sent as electrify.tl does: not player initiated, errors not ignored; street graph left alone
 	tram.send(api, proposal, nil)
 	local cmd = api.sent[1].cmd
@@ -349,8 +369,64 @@ test("approach tram: makeProposal raises on a gone edge and on lanes that do not
 		end, __newindex = function() end })
 		return { comp = comp }
 	end
-	local ok, err = pcall(tram.makeProposal, api, plan)
+	local ok, err = pcall(tram.makeProposal, api, plan, tram.VARIANTS[4])
 	assert(not ok and tostring(err):find("not written", 1, true), tostring(err))
+end)
+
+test("approach tram: templateName and templateLanes take the chosen copy only where it matches the edge lane for lane", function()
+	local base = "::/infrastructure/street/town/town_new_small.street_template"
+	eq(tram.templateName(base, { tram = 3, side = 1 }, {}), COPY_F, "right, right-hand: f, with catenary")
+	eq(tram.templateName(base, { tram = 4, side = 1 }, {}), COPY_K, "left, right-hand: k")
+	eq(tram.templateName(base, { tram = 3, side = 1 }, { rtr_tram_wire = 2 }), COPY:gsub("etram", "tram"):format("f"), "no catenary")
+	eq(tram.templateName(COPY_K, { tram = 3, side = 1 }, {}), COPY_K, "the edge's own copy")
+	eq(tram.templateName(nil, { tram = 3, side = 1 }, {}), nil, "no name")
+	local w = world()
+	local api = fakeApi(w)
+	local plan = assert(tram.plan(api, 100))
+	local item = plan.edges[1]
+	local old = api.engine.getComponent(10, "BASE_EDGE")
+	local tl, name = tram.templateLanes(api, item, old, plan.choice, {})
+	assert(tl, tostring(name)); eq(name, COPY_F, "f copy")
+	-- the edge's own copy is the wrong side's: refused
+	w.edges[10].roadTemplate = COPY_K
+	old = api.engine.getComponent(10, "BASE_EDGE")
+	tl, name = tram.templateLanes(api, item, old, plan.choice, {})
+	eq(tl, nil, "wrong copy refused"); assert(name:find("track", 1, true), name)
+	-- a template not there, another lane count, an edge laid the other way
+	w.edges[10].roadTemplate = "road_tunnel_ramp::/road_tunnel_ramp/streets/tram_x_f_etram.street_template"
+	eq(tram.templateLanes(api, item, api.engine.getComponent(10, "BASE_EDGE"), plan.choice, {}), nil, "not found")
+	w.edges[10].roadTemplate = COPY_F
+	local six = { edge = 10, runsIn = true, strip = { 2 }, lanes = { {}, {}, {}, {}, {}, {} } }
+	eq(tram.templateLanes(api, six, api.engine.getComponent(10, "BASE_EDGE"), plan.choice, {}), nil, "lane count")
+	local rev = { edge = 10, runsIn = false, strip = { 3 }, lanes = item.lanes }
+	eq(tram.templateLanes(api, rev, api.engine.getComponent(10, "BASE_EDGE"), plan.choice, {}), nil, "laid the other way")
+	-- the template way fails there; the written way still lays it
+	w.edges[10].roadTemplate = COPY_K
+	local p, way = tram.firstPassing(api, plan, {})
+	assert(p, "a way")
+	assert(way:find("written", 1, true), "falls to a written way: " .. way)
+end)
+
+test("approach tram: firstPassing tries the ways in order until makeProposalData takes one", function()
+	local w = world()
+	local api = fakeApi(w)
+	local plan = assert(tram.plan(api, 100))
+	local p, way, fails = tram.firstPassing(api, plan, {})
+	assert(p, "taken"); eq(way, "template", "the first way"); eq(#fails, 0, "no fails")
+	-- the engine raises on the first two (as TC7's std::exception)
+	local n = 0
+	api.engine.util.proposal.makeProposalData = function()
+		n = n + 1
+		if n <= 2 then error("std::exception") end
+		return { errorState = { critical = false, messages = {} } }
+	end
+	p, way, fails = tram.firstPassing(api, plan, {})
+	assert(p, "taken"); eq(way, "written-bare", "the third way"); eq(#fails, 2, "two fails")
+	assert(fails[1]:find("std::exception", 1, true), fails[1])
+	-- critical on all: none taken, every way's why
+	api.engine.util.proposal.makeProposalData = function() return { errorState = { critical = true, messages = { "Collision" } } } end
+	p, way, fails = tram.firstPassing(api, plan, {})
+	eq(p, nil, "none"); eq(#fails, #tram.VARIANTS, "all failed"); assert(fails[4]:find("Collision", 1, true), fails[4])
 end)
 
 -- The game script, with the stand-in engine as the global api.
@@ -453,6 +529,23 @@ test("approach tram script: Both, a refused build, other mods' builds and a miss
 	run(d.handleEvent, {}, st, "", tram.EVENT_ID, tram.EVENT_NAME, st.s.approach_tram_found[1])
 	eq(#fapi.sent, 0, "nothing sent without an approach")
 	eq(#lines, 1, "the missing approach is logged"); assert(lines[1]:find("no approach", 1, true), lines[1])
+	-- the engine takes no way (TC7: std::exception): one line, nothing sent
+	d, fapi, newState, run, lines = scriptWith(world())
+	fapi.engine.util.proposal.makeProposalData = function() error("std::exception") end
+	run(d.handleEvent, {}, newState(), "", tram.EVENT_ID, tram.EVENT_NAME, { construction = 100 })
+	eq(#fapi.sent, 0, "nothing sent when no way is taken")
+	eq(#lines, 1, "one line"); assert(lines[1]:find("no way taken", 1, true) and lines[1]:find("std::exception", 1, true), lines[1])
+	-- the first way raised, a later one taken: sent, with one line naming it
+	d, fapi, newState, run, lines = scriptWith(world())
+	local n = 0
+	fapi.engine.util.proposal.makeProposalData = function()
+		n = n + 1
+		if n == 1 then error("std::exception") end
+		return { errorState = { critical = false, messages = {} } }
+	end
+	run(d.handleEvent, {}, newState(), "", tram.EVENT_ID, tram.EVENT_NAME, { construction = 100 })
+	eq(#fapi.sent, 1, "sent the second way"); eq(#lines, 1, "one line")
+	assert(lines[1]:find('"template-bare" way', 1, true), lines[1])
 end)
 
 -- The e2e scripts, with their placeholders filled, against the stand-in.
@@ -484,7 +577,7 @@ test("approach tram e2e scripts: the reader gives the lanes, the sender asks (dr
 	eq(e.lanes[2].forward, false, "forward read"); eq(e.lanes[2].offset, -0.5, "offset read")
 	assert(math.abs(e.node0Local.x + 20) < 1e-6, "node0 local x")
 	assert(out.edges[3].why, "a missing edge says why")
-	eq(dry.stage, "dry run asked", "dry"); eq(dry.verdict.critical, false, "verdict"); eq(sentDry, 0, "dry sends nothing")
+	eq(dry.stage, 'dry run: the engine takes "template"', "dry"); eq(sentDry, 0, "dry sends nothing")
 	eq(dry.approaches[1].edge, 10, "approach found"); assert(same(dry.approaches[1].strip, { 2 }), "lane 2")
 	eq(sent.stage, "sent", "sent"); eq(#fapi.sent, 1, "one build")
 	assert(same(fapi.sent[1].cmd.proposal.streetProposal.edgesToRemove, { 10 }), "edge 10")
@@ -493,4 +586,29 @@ test("approach tram e2e scripts: the reader gives the lanes, the sender asks (dr
 	fapi.sent[1].cb({}, true)
 	print = oldPrint
 	eq(tram.lastManual.answer, "built", "answer kept for the next eval")
+end)
+
+test("approach tram e2e steps script: every way's steps, the first that raised, and the verdicts; nothing sent", function()
+	local oldApi = api
+	api = fakeApi(world())
+	-- the engine refuses the lanes written mode by mode only (a guess at TC7)
+	api.engine.util.proposal.makeProposalData = function(p)
+		for _, seg in ipairs(p.streetProposal.edgesToAdd) do
+			if seg.playerOwned then error("std::exception") end
+		end
+		return { errorState = { critical = false, messages = {} } }
+	end
+	local ok, out = pcall(e2eChunk("approach_tram_steps.lua", { __CONSTRUCTION__ = "100" }))
+	local fapi = api
+	api = oldApi
+	assert(ok, tostring(out))
+	eq(#out.ways, 6, "six ways"); eq(#fapi.sent, 0, "nothing sent")
+	local by = {}
+	for _, r in ipairs(out.ways) do by[r.way] = r end
+	eq(by["same-bare"].failedAt, nil, "same-bare passes"); eq(by["template-bare"].template, COPY_F, "template named")
+	eq(by["template"].failedAt, "makeProposalData(context)", "template: where it raised")
+	assert(by["template"].error:find("std::exception", 1, true), by["template"].error)
+	eq(by["written-bare"].failedAt, nil, "written-bare passes")
+	eq(by["written-bare"].lanesBack[2].modes, "CAR BUS TRUCK", "lane 2 read back without track")
+	eq(by["same"].failedAt, "makeProposalData(context)", "same with the copies raises too")
 end)
