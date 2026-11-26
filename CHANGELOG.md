@@ -9,6 +9,8 @@ The first public release is 1.0.0 (`revision` 10000).
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-26
+
 ### Added
 - **Tram track** and **Catenary** (both constructions): a tram track on
   the flat approach, the descent and the tunnel stub, on the same lane all
