@@ -13,6 +13,7 @@ Two road constructions take a street underground in one placement, between concr
 Snap it to the end of a street. It lays a flat approach street, the descent in an open trench, the portal with its cover and the tunnel stub, and cuts the terrain around it. The approach becomes an ordinary street once built, so your roads join it like any street.
 
 - Street type: Small, Medium and Large Street, Small and Medium Country Road, One- and Two-Lane Highway (one-way), or two lanes for motor vehicles only (8 m, no sidewalks; this mod's own street).
+- Only the flat approach keeps the sidewalks: the descent into the tunnel has the same lanes with narrow shoulders and no sidewalks, and the retaining walls take that width, so the ramp is no wider.
 - Up to three streets side by side (a divided highway or 2+1 with the one-way highways).
 - Ramp length 40–100 m, approach length 2–50 m, underground depth 13–25 m, slope curvature (five shapes), retaining wall 1.5 m (with a parapet) or 3.4 m, traffic side and direction.
 - Portal cover length 12–24 m (18 m initially; it starts 6 m in front of the portal). The mod setting **Initial portal cover length** picks the value new ramps start on.
@@ -47,6 +48,7 @@ License: MIT. Source code: https://github.com/hummer98/tpf3-road-tunnel-approach
 道路の端に接続して置きます。手前の平らな道路、掘り割りの下り坂、ポータルと天蓋、トンネルの端を建て、まわりの地形を掘り下げます。手前の道路は建設後ふつうの道路になるので、ほかの道路と同じようにつなげられます。
 
 - 道路種類：街道（小・中・大）、田舎道（小・中）、一方通行の1車線・2車線高速道路、歩道なしの2車線の車専用（8 m。この MOD の道路）。
+- 歩道が残るのは手前の平らな道路だけです。トンネルへの下り坂は、同じ車線に細い路肩が付いた歩道のない道路になり、その幅は擁壁にあてるので、ランプの幅は広がりません。
 - 3本まで並べられます（一方通行の高速道路で、上下線のそろった道路や 2+1）。
 - ランプの長さ 40〜100 m、手前の道路の長さ 2〜50 m、地下深度 13〜25 m、勾配カーブ（5種類）、擁壁 1.5 m（壁高欄付き）か 3.4 m、通行区分、進行方向。
 - ポータル天蓋の長さ 12〜24 m（初期設定 18 m。天蓋は坑口の 6 m 手前から始まります）。MOD の設定「天蓋の長さの初期値」で、新しく置くときの値を選べます。

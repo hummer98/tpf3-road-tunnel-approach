@@ -233,14 +233,28 @@ return {
 			-- laneConfigs widths; tests re-check them against street.zip
 			-- when the game is installed.
 			-- oneWay marks templates whose car lanes are all forward.
+			-- descent: the street the descent (x = 0 to the portal and on to
+			-- the tunnel's foot) is laid with, the same car lanes with 0.5m
+			-- shoulders and no sidewalk (streets/ramp_descent_*); the width
+			-- it takes off goes to the walls, whose outer edge stays put
+			-- (ramp_geometry.lua M.descentWall). The flat approach and the
+			-- 30m stub keep ref. None on the cars-only entry: it has no
+			-- sidewalk to take off.
 			streets = {
-				{ ref = "::/infrastructure/street/highway/highway_new_small.street_template",  width = 9, oneWay = true },
-				{ ref = "::/infrastructure/street/country/country_new_small.street_template",  width = 14 },
-				{ ref = "::/infrastructure/street/town/town_new_small.street_template",       width = 16 },
-				{ ref = "::/infrastructure/street/highway/highway_new_medium.street_template", width = 18, oneWay = true },
-				{ ref = "::/infrastructure/street/country/country_new_medium.street_template", width = 22 },
-				{ ref = "::/infrastructure/street/town/town_new_medium.street_template",      width = 24 },
-				{ ref = "::/infrastructure/street/town/town_new_large.street_template",       width = 32 },
+				{ ref = "::/infrastructure/street/highway/highway_new_small.street_template",  width = 9, oneWay = true,
+				  descent = { ref = "road_tunnel_ramp::/road_tunnel_ramp/streets/ramp_descent_highway_small.street_template", width = 6 } },
+				{ ref = "::/infrastructure/street/country/country_new_small.street_template",  width = 14,
+				  descent = { ref = "road_tunnel_ramp::/road_tunnel_ramp/streets/ramp_descent_country_small.street_template", width = 11 } },
+				{ ref = "::/infrastructure/street/town/town_new_small.street_template",       width = 16,
+				  descent = { ref = "road_tunnel_ramp::/road_tunnel_ramp/streets/ramp_descent_town_small.street_template", width = 11 } },
+				{ ref = "::/infrastructure/street/highway/highway_new_medium.street_template", width = 18, oneWay = true,
+				  descent = { ref = "road_tunnel_ramp::/road_tunnel_ramp/streets/ramp_descent_highway_medium.street_template", width = 11 } },
+				{ ref = "::/infrastructure/street/country/country_new_medium.street_template", width = 22,
+				  descent = { ref = "road_tunnel_ramp::/road_tunnel_ramp/streets/ramp_descent_country_medium.street_template", width = 19 } },
+				{ ref = "::/infrastructure/street/town/town_new_medium.street_template",      width = 24,
+				  descent = { ref = "road_tunnel_ramp::/road_tunnel_ramp/streets/ramp_descent_town_medium.street_template", width = 19 } },
+				{ ref = "::/infrastructure/street/town/town_new_large.street_template",       width = 32,
+				  descent = { ref = "road_tunnel_ramp::/road_tunnel_ramp/streets/ramp_descent_town_large.street_template", width = 27 } },
 				-- Two lanes (one each way), no sidewalk, offered as a cars-only
 				-- ramp (user: 「一旦歩道ありはそのまま置いておいて、「歩道無し」版の
 				-- パーツを作る感じですかね」, 「車専用でいいです」). Its own template,

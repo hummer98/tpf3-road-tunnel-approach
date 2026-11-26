@@ -17,7 +17,7 @@
 -- M.spec(cap, p)  reads the full-width ramp's menu into a spec
 -- M.layout(spec)  the dimensions (and the height functions) of the body
 -- M.build(spec)   the construction result, and the layout it used
--- A spec: street = { ref, width, oneWay }, count, L, D, curvature,
+-- A spec: street = { ref, width, oneWay, descent }, count, L, D, curvature,
 -- direction, side, approach, gx, gy, wall (one of M.WALLS), lidLength (the
 -- portal cover's whole length; nil counts as M.LID_DEFAULT), tunnelRef,
 -- tunnelHeight, handOver (nil counts as true), approachDepotStyle (read
@@ -62,6 +62,53 @@ M.WALLS = {
 	  copingIn = 0.65, copingOut = 2.4, shoulderIn = 0.65, shoulderOut = 7, floor = 0.4 },
 }
 M.WALL_THICK = 2
+
+-- The game keeps the terrain's height on a grid of points 1m apart and
+-- draws it as triangles between them; seen across a wall that runs at an
+-- angle to the grid, one triangle spans up to sqrt(2) = 1.41m [measured
+-- 2026-11-26 TC4: the 1m points; guess: the triangles' diagonal]. So where
+-- the trench floor's faces end (F) and the ground's faces begin, the slope
+-- between the two heights can reach up to GRID_REACH either way. With the
+-- thin wall the floor ended 0.9m past the wall's inner face (I) and the top
+-- 0.6m further out (C), and that slope showed outside the top as a narrow
+-- groove, deeper toward the portal (TC4: 0.85m against the ground's 5.0m,
+-- 9.5-10m from the centre line; the user: 「擁壁に沿って、だんだん深くなる
+-- ような細い溝がみえます。」). Hidden, it needs I + GRID_REACH <= F and
+-- F + GRID_REACH <= C: the slope then lies under the wall and its top.
+M.GRID_REACH = 1.42
+
+-- The wall beside the descent, where the street is laid without its
+-- sidewalks (or the highways' wide shoulders): extra is the width taken off
+-- each side (street.width - descent.width) / 2, and it goes to the wall
+-- (the user: 「要望として全体の幅を増やすのはしたくない」, so the outer edge
+-- of the top, C, stays where it was). The wall is extra thicker inward, its
+-- inner face on the descent's edge (plus the thick wall's 0.4m clearance),
+-- the top band reaches in over it as before (0.05m past its inner face),
+-- and the banks end where they did. The floor and the banks then meet
+-- halfway between I and C (floor = shoulderIn), so both slopes of
+-- GRID_REACH stay inside the band when it is 2 * GRID_REACH or wider. Every
+-- number stays relative to the wall's centreline (outer), as in M.WALLS.
+-- extra 0 (the cars-only street, the flat approach) is w itself, so those
+-- keep the body as it was to the bit.
+function M.descentWall(w, extra)
+	if not extra or extra <= 0 then return w end
+	local d = {}
+	for k, v in pairs(w) do d[k] = v end
+	local h = extra * 0.5
+	d.extra = extra
+	d.centre = w.centre + h
+	d.half = w.half + h
+	-- the wall model is 0.45 across (M.WALLS scale)
+	d.scale = (w.half + h) * 2 / 0.45
+	d.copingIn = w.copingIn + h
+	d.copingOut = w.copingOut + h
+	d.shoulderOut = w.shoulderOut + h
+	-- halfway between the inner face (-half) and the top's outer edge
+	local mid = (d.copingOut - d.half) * 0.5
+	d.floor = mid
+	d.shoulderIn = mid
+	return d
+end
 
 -- The part models: wall the retaining wall, slab the portal cover, strip
 -- the coping and parapet. Each part has its own mesh with texture
@@ -250,9 +297,17 @@ function M.layout(s)
 	for _, k in ipairs({ "centre", "half", "scale", "copingIn", "copingOut", "shoulderIn", "shoulderOut", "floor" }) do
 		assert(type(s.wall[k]) == "number", "ramp_geometry: spec.wall." .. k .. " must be a number")
 	end
-	local w = s.wall
-	local g = {}
 	local street = s.street
+	-- The descent's street and wall (M.descentWall); the flat approach keeps
+	-- the chosen street and s.wall (approachWall below).
+	local descent = street.descent
+	if descent then
+		assert(type(descent.width) == "number" and descent.width <= street.width and type(descent.ref) == "string",
+			"ramp_geometry: spec.street.descent must be { ref, width } no wider than the street")
+	end
+	local extra = descent and (street.width - descent.width) * 0.5 or 0
+	local w = M.descentWall(s.wall, extra)
+	local g = {}
 	local L, D, count, approach = s.L, s.D, s.count, s.approach
 	local gx, gy = s.gx, s.gy
 	local tunnelHeight = s.tunnelHeight
@@ -278,7 +333,13 @@ function M.layout(s)
 	-- centre. halfSpread is the offset of the farthest street (0
 	-- for a single street); halfWidth + w.centre keeps the wall
 	-- (half thick w.half) just outside the outermost sidewalk edge.
-	local outer = halfSpread + halfWidth + w.centre
+	-- The descent's street is narrower by extra each side, the wall's
+	-- centreline in by extra / 2, so its outer face and everything past it
+	-- (the coping's outer edge, the cover, the banks) stay where they were.
+	local outer = halfSpread + (halfWidth - extra) + w.centre
+	-- The flat approach's walls (on a stated slope only) stand beside the
+	-- chosen street, sidewalks and all: s.wall as before.
+	local outerA = halfSpread + halfWidth + s.wall.centre
 	-- Outer edge of the coping, and of the portal cover with it.
 	-- The cover used to reach outer + 4, 1.6m past the coping, and
 	-- the ground showed in the notch between the two bands in front
@@ -471,6 +532,14 @@ function M.layout(s)
 	g.holdB = holdB
 	g.floorOuter, g.shoulderOut = floorOuter, shoulderOut
 	g.wall, g.shoulderIn = w, outer + w.shoulderIn
+	g.extra = extra
+	g.descentRef = descent and descent.ref or street.ref
+	-- the wall's inner face (I) beside the descent
+	g.wallInner = outer - w.half
+	g.approachWall = {
+		wall = s.wall, outer = outerA, floorOuter = outerA + s.wall.floor,
+		shoulderIn = outerA + s.wall.shoulderIn, copingOut = outerA + s.wall.copingOut,
+	}
 	g.ground, g.profile, g.roadZ = ground, profile, roadZ
 	g.lidZ, g.lifted, g.surface = lidZ, lifted, surface
 	return g
@@ -498,7 +567,15 @@ function M.build(s)
 	local g = M.layout(s)
 	local r = newResult()
 	local sub = r.subconstructions[1]
+	-- The flat approach and the underground runout are the chosen street;
+	-- the descent between them (x = 0 to L) its sidewalk-less descent
+	-- (g.descentRef, the same street when it has none). The runout stays the
+	-- chosen street so a tunnel of that type, laid on from its end, meets
+	-- its own type there, as before: at a construction's kept node a street
+	-- of another type let no car through [measured 2026-11-23 PC, PD].
 	local streetRef = s.street.ref
+	local descentRef = g.descentRef
+	local edgeRef = streetRef
 	local tunnelRef = s.tunnelRef
 	local L, D, count, approach, runout = g.L, g.D, g.count, g.approach, g.runout
 	local gy, sloped = g.gy, g.sloped
@@ -538,7 +615,7 @@ function M.build(s)
 		-- either side of the portal.
 		local e = {
 			type = "STREET",
-			params = { type = streetRef },
+			params = { type = edgeRef },
 			edges = { a, b },
 			snapNodes = snaps,
 			freeNodes = frees,
@@ -579,6 +656,7 @@ function M.build(s)
 	for idx, yOffset in ipairs(ys) do
 		reverse = flows[idx] == -1
 		local snapApproach = (idx == snapIdx)
+		edgeRef = streetRef
 		-- Flat approach segment (external connection at x = -approach).
 		-- ys[snapIdx] snaps to the external road.
 		-- Handed over (both nodes free, as the base game's interchanges
@@ -618,6 +696,7 @@ function M.build(s)
 			false, snapApproach, false,
 			handOver or depotStyle or not snapApproach, handOver
 		)
+		edgeRef = descentRef
 		for i = 1, #uniq - 1 do
 			local ta, tb = uniq[i], uniq[i + 1]
 			local za, ga = profile(ta)
@@ -632,6 +711,7 @@ function M.build(s)
 			)
 		end
 		-- Underground runout, so the player's own tunnel can snap to the end.
+		edgeRef = streetRef
 		for i = 0, segN - 1 do
 			local a, b = L + runout * i / segN, L + runout * (i + 1) / segN
 			edge(
@@ -658,7 +738,10 @@ function M.build(s)
 	-- plane meets the road at the snap point but not at x = 0, so
 	-- without them the trench walls would start with a bare end face
 	-- over a cut (uphill) or a fill (downhill).
-	local function walls(x0, x1, segments, prefix)
+	-- side: { outer, wall }, the descent's (g) or the flat approach's
+	-- (g.approachWall), whose wall is the thinner one beside the sidewalk.
+	local function walls(x0, x1, segments, prefix, side)
+		local outer, wall = side.outer, side.wall
 		for _, wallSide in ipairs({ -1, 1 }) do
 			for i = 0, segments - 1 do
 				local xa = x0 + (x1 - x0) * i / segments
@@ -696,8 +779,9 @@ function M.build(s)
 		end
 	end
 	local approachSegments = math.max(1, math.ceil(approach / wallSegLen))
-	walls(0, portalX, wallSegments, "wall_")
-	if sloped then walls(-approach, 0, approachSegments, "approach_wall_") end
+	local approachSide = g.approachWall
+	walls(0, portalX, wallSegments, "wall_", g)
+	if sloped then walls(-approach, 0, approachSegments, "approach_wall_", approachSide) end
 
 	-- Concrete coping on top of the wall, hiding the seam where the
 	-- descending terrain meets the wall face. rise (z over the
@@ -717,7 +801,8 @@ function M.build(s)
 			tag = tag,
 		}
 	end
-	local function copings(x0, x1, segments, prefix)
+	local function copings(x0, x1, segments, prefix, side)
+		local outer, wall = side.outer, side.wall
 		for _, sign in ipairs({ -1, 1 }) do
 			local inside = outer - wall.copingIn
 			local outside = copingOut
@@ -743,14 +828,15 @@ function M.build(s)
 	-- The trench coping stops where the cover starts: past it the two
 	-- would share their outer side faces (z-fighting), and the
 	-- coping's top, 3cm over the cover's, would show as a strip on it.
-	copings(0, lidA, math.max(1, math.ceil(lidA / wallSegLen)), "coping_")
-	if sloped then copings(-approach, 0, approachSegments, "approach_coping_") end
+	copings(0, lidA, math.max(1, math.ceil(lidA / wallSegLen)), "coping_", g)
+	if sloped then copings(-approach, 0, approachSegments, "approach_coping_", approachSide) end
 
 	-- The thin wall's parapet: a wall-type barrier on the coping, its
 	-- inner face over the wall's, its top wall.parapet.top over the
 	-- ground, along the same run as the coping (the cover takes over
 	-- from lidA on).
-	local function parapets(x0, x1, segments, prefix)
+	local function parapets(x0, x1, segments, prefix, side)
+		local outer, wall = side.outer, side.wall
 		local pp = wall.parapet
 		local copingTop = 0.28 + 0.25
 		for _, sign in ipairs({ -1, 1 }) do
@@ -773,8 +859,8 @@ function M.build(s)
 		end
 	end
 	if wall.parapet then
-		parapets(0, lidA, math.max(1, math.ceil(lidA / wallSegLen)), "parapet_")
-		if sloped then parapets(-approach, 0, approachSegments, "approach_parapet_") end
+		parapets(0, lidA, math.max(1, math.ceil(lidA / wallSegLen)), "parapet_", g)
+		if sloped then parapets(-approach, 0, approachSegments, "approach_parapet_", approachSide) end
 	end
 
 	-- Portal top cover: a rigid slab across the portal tangent so
@@ -867,7 +953,7 @@ function M.build(s)
 		if sloped then
 			for i = 0, approachSegments - 1 do
 				strip(surface, -approach + approach * i / approachSegments,
-					-approach + approach * (i + 1) / approachSegments, inner, outside)
+					-approach + approach * (i + 1) / approachSegments, approachSide.shoulderIn, outside)
 			end
 		end
 		for i = 0, trenchSegments - 1 do
@@ -907,8 +993,8 @@ function M.build(s)
 	if sloped then
 		table.insert(sub.terrainAlignmentLists, {
 			type = "EQUAL",
-			faces = { { { -approach, -floorOuter, Z - 0.25 }, { 0, -floorOuter, Z - 0.25 },
-			            { 0, floorOuter, Z - 0.25 }, { -approach, floorOuter, Z - 0.25 } } },
+			faces = { { { -approach, -approachSide.floorOuter, Z - 0.25 }, { 0, -approachSide.floorOuter, Z - 0.25 },
+			            { 0, approachSide.floorOuter, Z - 0.25 }, { -approach, approachSide.floorOuter, Z - 0.25 } } },
 			slopeLow = 0.45, slopeHigh = 1, optional = true,
 		})
 	end

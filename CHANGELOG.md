@@ -15,6 +15,22 @@ The first public release is 1.0.0 (`revision` 10000).
   piece showed beyond the cover's end (at 6 m the cover ended on the
   portal). The mod setting **Initial portal cover length** has the same
   range. 18 m initially and 24 m at most, as before.
+- **No groove along the retaining wall.** With the 1.5 m wall a narrow
+  groove showed in the ground just outside the wall top, deeper toward the
+  portal: the terrain's slope from the trench floor up to the ground
+  reached past the top. It now lies under the wall and its top (see below).
+
+### Changed
+- **The descent has no sidewalks** (both constructions). Only the flat
+  approach keeps the chosen street's sidewalks; from the start of the
+  descent into the tunnel the street has the same lanes with a 0.5 m
+  shoulder each side (a highway's wide shoulders become 0.5 m too).
+  Pedestrians cannot walk down the ramp. The width taken off goes to the
+  retaining walls, which stand that much further in: the ramp, the portal
+  cover and the Median Tunnel Approach's side streets are as wide as before.
+  The 30 m tunnel stub is the chosen street, as before. The two lanes for
+  motor vehicles only and the cars-only centre are unchanged (they have no
+  sidewalk to take off).
 
 ## [1.1.0] - 2026-11-26
 

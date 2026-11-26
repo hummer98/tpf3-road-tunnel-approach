@@ -34,9 +34,12 @@ local TOWN = "::/infrastructure/street/town/"
 -- 田舎道か街路か選べるのが理想です」「高速も、ですね」, and the cars-only one
 -- first: 「車専用でいいです」.
 M.CENTRES = {
-	[1] = { ref = "::/infrastructure/street/highway/highway_new_small.street_template", width = 9, oneWay = true },
-	[2] = { ref = "::/infrastructure/street/country/country_new_small.street_template", width = 14 },
-	[3] = { ref = TOWN .. "town_new_small.street_template", width = 16 },
+	[1] = { ref = "::/infrastructure/street/highway/highway_new_small.street_template", width = 9, oneWay = true,
+	        descent = { ref = STREETS .. "ramp_descent_highway_small.street_template", width = 6 } },
+	[2] = { ref = "::/infrastructure/street/country/country_new_small.street_template", width = 14,
+	        descent = { ref = STREETS .. "ramp_descent_country_small.street_template", width = 11 } },
+	[3] = { ref = TOWN .. "town_new_small.street_template", width = 16,
+	        descent = { ref = STREETS .. "ramp_descent_town_small.street_template", width = 11 } },
 	[8] = { ref = STREETS .. "ramp_car_only.street_template", width = 8,
 	        variants = {
 		        STREETS .. "ramp_car_only_bare.street_template",

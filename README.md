@@ -21,7 +21,17 @@ Start a new game with this mod.
   levelled around it.
 - The streets and the tunnel are the base game's own types (the tunnel is the
   vanilla car tunnel), so vehicles use them like any other street. The
-  exception is the street without sidewalks below, which is this mod's own.
+  exceptions are this mod's own: the descent's street (next point) and the
+  street without sidewalks below.
+- Only the flat approach keeps the chosen street's sidewalks. From the start
+  of the descent into the tunnel the street has the same lanes with a 0.5 m
+  shoulder each side and no sidewalks (a highway's wide shoulders become
+  0.5 m too); nobody walks into a road tunnel. The width taken off goes to
+  the retaining walls, which stand that much further in, so the ramp is no
+  wider, and the step of the terrain from the trench floor up to the ground
+  lies under the wall and its top (with the 1.5 m wall a narrow groove used
+  to show along the top). The 30 m tunnel stub at the bottom is the chosen
+  street again, so the tunnel you lay on from it can be the same type.
 - Seven street types, from the one-lane highway (9 m) to the large street
   (32 m). Wider streets widen the trench, walls and portal cover with them.
 - An eighth, last in the list: two lanes for motor vehicles only (one
@@ -66,7 +76,7 @@ Start a new game with this mod.
 | Approach length | 2–50 m in 2 m steps: flat street before the descent, from the snap point | 20 m |
 | Underground depth | 13–25 m in 1 m steps (13 m keeps earth above the tunnel roof) | 16 m |
 | Parallel streets | Single, Double, Triple (2 m between carriageways) | Single |
-| Retaining wall | 1.5m / 3.4m, each side from the street edge to the outer edge of the wall top. 1.5m: right against the street edge, a 1.0 m wall and a 0.5 m top band, with a parapet 1.1 m over the ground (the street's own sidewalk or shoulder is the margin beside its lanes). 3.4m: a wider wall, 0.4 m clear, a 1.2 m wall and a coping reaching 1.8 m past it. The portal cover is as wide as the walls | 1.5m |
+| Retaining wall | 1.5m / 3.4m, each side from the street edge to the outer edge of the wall top. 1.5m: right against the street edge, a 1.0 m wall and a 0.5 m top band, with a parapet 1.1 m over the ground (the street's own sidewalk or shoulder is the margin beside its lanes). 3.4m: a wider wall, 0.4 m clear, a 1.2 m wall and a coping reaching 1.8 m past it. Along the descent the wall is thicker by the sidewalk taken off (for example 3.5 m instead of 1.0 m beside a Small Street), its outer edge where it was. The portal cover is as wide as the walls | 1.5m |
 | Portal cover length | 12–24 m in 1 m steps: the whole length of the portal cover, which always starts 6 m in front of the portal; 18 m reaches 12 m past the portal; even the shortest covers the top of the game's tunnel portal | 18 m (see the mod setting below) |
 | Traffic direction | Into tunnel / Out of tunnel: one-way highways only; picks which way traffic flows on the street that snaps | Into tunnel |
 | Traffic side | Right-hand / Left-hand: set it to your game's driving side; only matters for parallel one-way highways | Right-hand |
@@ -147,7 +157,10 @@ yourself, with ordinary streets (see below).
   direction), or two lanes for motor vehicles only (initial setting, 8 m,
   no sidewalks). Its flat approach becomes an ordinary street of yours, as on
   the full-width ramp, free at both ends; the descent, tunnel and stub stay
-  in the construction, and nothing is built beside the walls.
+  in the construction, and nothing is built beside the walls. As on the
+  full-width ramp, the descent of the Small Street, Country Road and
+  highway centres has no sidewalks and the walls take that width; the side
+  streets stay where they are (the whole stays 24 m on a four-lane street).
 - Retaining wall: 1.5 m (initial setting) or 3.4 m, as on the full-width
   ramp. The side streets move out with the wall's top.
 - Side streets: one each side, one-way, sidewalk on the outer side only,
@@ -237,9 +250,9 @@ and road tool, left-hand traffic, sloped ground.
 - Removing it gives a warning (`severityRemove: Warning`): placed ramps are
   constructions of this mod (`ramp.con` and `median.con`, with their own
   wall, coping and cover models), so a save that has them depends on the mod.
-  The median's side streets and the full-width ramp's street without
-  sidewalks are this mod's street types; the other streets and the tunnel
-  are vanilla types.
+  The median's side streets, the descents' streets and the full-width
+  ramp's street without sidewalks are this mod's street types; the other
+  streets and the tunnel are vanilla types.
 - Not `cosmetic`: it adds a construction, so the game treats it as a gameplay
   mod.
 - The build-cursor grade and ground slope lines wrap the game's construction
@@ -355,7 +368,8 @@ revision is what lets `stage.py` accept the update. The tests fail when
 ### 機能
 
 - 1つの建設物で、進入路をまとめて敷きます。平らな手前の道路、笠石付きの擁壁にはさまれた切り通しの下り坂、天蓋の付いたポータル、底の長さ 30 m のトンネルです。まわりの地形も掘り下げてならします。
-- 道路とトンネルはバニラのもの（トンネルはバニラの自動車用トンネル）なので、車両はふつうの道路と同じように通ります。下の車専用の道路だけは、この MOD のものです。
+- 道路とトンネルはバニラのもの（トンネルはバニラの自動車用トンネル）なので、車両はふつうの道路と同じように通ります。下り坂の道路（次の項）と、下の車専用の道路だけは、この MOD のものです。
+- 選んだ道路の歩道が残るのは、手前の平らな道路だけです。下り坂の始まりからトンネルまでは、同じ車線に両側 0.5 m の路肩が付いた、歩道のない道路になります（高速道路の広い路肩も 0.5 m になります）。道路トンネルに歩いて入る人はいないためです。外した幅は擁壁にあてて、擁壁がその分だけ内側まで来るので、ランプの幅は広がりません。掘割の底から地面までの地形の段差は、擁壁とその上の帯の下に隠れます（擁壁 1.5 m では、上の帯に沿って細い溝が見えていました）。底のトンネル（30 m）は選んだ道路に戻るので、そこから延ばすトンネルを同じ種類にできます。
 - 道路の種類は7つ。1車線高速道路（9 m）から街道（大）（32 m）まで。幅の広い道路を選ぶと、溝・擁壁・ポータル天蓋も広がります。
 - 一覧の最後に8つ目として、2車線の車専用の道路（各方向 3.5 m の1車線、8 m）があります。両側に 0.5 m の路肩があり、歩道はなく、歩行者は通れません。つないだ道路から車が入れるかは、ゲームでまだ確認していません。
 - 3本まで並べて敷けます。一方通行の高速道路では、上下線のそろった道路（2本）や 2+1（3本）になり、選んだ通行区分に合わせて各方向を正しい側に置きます。
@@ -378,7 +392,7 @@ revision is what lets `stage.py` accept the update. The tests fail when
 | 手前の道路の長さ | 2〜50 m、2 m 刻み。下り始めるまでの平らな道路（接続点から） | 20 m |
 | 地下深度 | 13〜25 m、1 m 刻み（13 m あればトンネルの天井の上に土が残ります） | 16 m |
 | 並列車道数 | 1本・2本・3本（車道の間は 2 m） | 1本 |
-| 擁壁の幅 | 1.5m／3.4m。片側の、道路の縁から擁壁の上の外の縁まで。1.5m：道路の縁にじかに接して厚さ 1.0 m の壁と幅 0.5 m の上の帯、壁の上に地面から 1.1 m の壁高欄（車線の脇の余白は、道路の型の歩道か路肩）。3.4m：幅の広い擁壁で、0.4 m あけて厚さ 1.2 m の壁と、その外へ 1.8 m 張り出す笠石。ポータル天蓋の幅も擁壁に合わせます | 1.5m |
+| 擁壁の幅 | 1.5m／3.4m。片側の、道路の縁から擁壁の上の外の縁まで。1.5m：道路の縁にじかに接して厚さ 1.0 m の壁と幅 0.5 m の上の帯、壁の上に地面から 1.1 m の壁高欄（車線の脇の余白は、道路の型の歩道か路肩）。3.4m：幅の広い擁壁で、0.4 m あけて厚さ 1.2 m の壁と、その外へ 1.8 m 張り出す笠石。下り坂の区間では、外した歩道の分だけ壁が厚くなり（たとえば「街道（小）」の脇では 1.0 m でなく 3.5 m）、外の縁は変わりません。ポータル天蓋の幅も擁壁に合わせます | 1.5m |
 | ポータル天蓋の長さ | 12〜24 m、1 m 刻み。ポータル天蓋の全体の長さで、天蓋はいつも坑口の 6 m 手前から始まります。18 m で坑口から 12 m 先まで。いちばん短くしても、ゲームのトンネルの坑口の上の面は天蓋で隠れます | 18 m（下の MOD の設定で変えられます） |
 | 進行方向 | トンネルへ下る／トンネルから上る。一方通行の高速道路だけ。接続する車道の交通の向きを選びます | トンネルへ下る |
 | 通行区分 | 右側通行／左側通行。ゲームの通行区分に合わせます。一方通行の高速道路を並べたときだけ効きます | 右側通行 |
@@ -402,7 +416,7 @@ MOD の設定（新しいゲームを始めるときの MOD の設定）：**ポ
 
 初期設定（入口 4、車専用の中央、擁壁 1.5 m、手前 30 m、長さ 100 m）の平面図は、英語の節の図を見てください（全体の幅はつなぐ「街道（中）」と同じ 24 m。側道の中心は中心線から ±8.75 m、外の縁は ±12 m、笠石と天蓋の外の縁と側道の内の縁は ±5.5 m、側道は下り坂の始まり（x = 0）から天蓋の終わり（x = 77）まで）。側道は道路につながっていません。手前の分かれ目と、遠い端の先の合流は、ふつうの道路で自分で引きます（下を見てください）。
 
-- 中央の道：全幅のランプの2車線の道から選びます。「街道（小）」、「田舎道（小）」、1車線高速道路（一方通行。「進行方向」を見てください）、「2車線 車専用 歩道なし」（初期設定、8 m）。手前の平らな道路は、全幅のランプと同じく、ふつうの道路として手放します（両端とも、つなげる端です）。下り坂・トンネル・底のトンネルは建設物に残り、擁壁の脇には何も建ちません。
+- 中央の道：全幅のランプの2車線の道から選びます。「街道（小）」、「田舎道（小）」、1車線高速道路（一方通行。「進行方向」を見てください）、「2車線 車専用 歩道なし」（初期設定、8 m）。手前の平らな道路は、全幅のランプと同じく、ふつうの道路として手放します（両端とも、つなげる端です）。下り坂・トンネル・底のトンネルは建設物に残り、擁壁の脇には何も建ちません。全幅のランプと同じく、「街道（小）」「田舎道（小）」と高速道路の中央の下り坂は歩道のない道路になり、その幅は擁壁にあてます。側道の位置は変わりません（4車線の道に置いたときの全体の幅は 24 m のままです）。
 - 擁壁：1.5 m（初期設定）か 3.4 m。全幅のランプと同じです。側道は擁壁の上の外の縁に合わせて外へずれます。
 - 側道：両側に1本ずつ。一方通行で、歩道は外側だけです。笠石とポータル天蓋にぴったり付けて（その下の地面は側道と同じ高さに保ちます）、擁壁とポータル天蓋の脇を、その長さだけまっすぐに延びます。下り坂の始まり（x = 0）から天蓋の終わり（坑口の 6 m 手前 ＋ ポータル天蓋の長さ。初期設定で 77 m、長さ 40 m で 38 m）までで、ランプの長さ・深さ・勾配カーブ・地面の勾配・天蓋の長さに合わせて長さが変わります。建設が終わると、ふつうの道路として手放され（両端とも、つなげる端です）、町は側道の外側に建物を建てます。擁壁の側には、区画ができないようにする見えない飾りが付いています。街灯（柱の上に灯りの付いた型。縁石の近く）・消火栓・ごみ箱は歩道の側だけに立ちます。各側道の向きは「通行区分」で決まります。
 - 入口の道：進入路が受け持つ町の道を、車線の数で選びます。**2**（「街道（小）」16 m）と **4**（「街道（中）」24 m、初期設定）は、側道が各1車線（6.5 m：車線 3.5 m、歩道 3 m。入口 4 では全体が「街道（中）」と同じ 24 m）。**6**（「街道（大）」32 m）は、側道が各2車線（11.5 m：4 m × 2、歩道 3.5 m）。中央はどれも各方向1車線です（高速道路では一方通行）。
@@ -442,7 +456,7 @@ MOD の設定（新しいゲームを始めるときの MOD の設定）：**ポ
 ### 互換性
 
 - 新しいゲームで始めてください。
-- 外すときは警告が出ます（`severityRemove: Warning`）。置いたランプはこの MOD の建設物（`ramp.con` と `median.con`、その擁壁・笠石・天蓋のモデル）なので、それがあるセーブはこの MOD に依存します。道路中央の地下進入路の側道と、全幅のランプの車専用の道路は、この MOD の道路です。ほかの道路とトンネルはバニラのものです。
+- 外すときは警告が出ます（`severityRemove: Warning`）。置いたランプはこの MOD の建設物（`ramp.con` と `median.con`、その擁壁・笠石・天蓋のモデル）なので、それがあるセーブはこの MOD に依存します。道路中央の地下進入路の側道と、下り坂の道路と、全幅のランプの車専用の道路は、この MOD の道路です。ほかの道路とトンネルはバニラのものです。
 - `cosmetic` ではありません。建設物を加えるので、ゲームはゲームプレイに関わる MOD として扱います。
 - 配置カーソルの最大勾配と地面の勾配の行は、バニラの建設アクションを包んで足しています。他の MOD（Construction Altitude Tooltip など）が同じ場所に足す行はそのまま残ります。
 - 依存する MOD はありません。

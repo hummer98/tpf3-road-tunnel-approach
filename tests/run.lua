@@ -84,6 +84,30 @@ local function lid36(fn)
 	end
 end
 
+-- The body as it was before the descent lost its sidewalks (2026-11-26):
+-- fn runs with every spec read by ramp_geometry.spec without the street's
+-- descent, so the descent is the chosen street and the walls are M.WALLS as
+-- they are. The tests written about that body (and the frozen builds) keep
+-- checking every other bit of it; the descent's own tests are under
+-- "descent:".
+local function withoutDescent(fn)
+	return function(...)
+		local spec = rampGeo.spec
+		rampGeo.spec = function(...)
+			local s = spec(...)
+			if s.street and s.street.descent then
+				local st = {}
+				for k, v in pairs(s.street) do if k ~= "descent" then st[k] = v end end
+				s.street = st
+			end
+			return s
+		end
+		local ok, err = pcall(fn, ...)
+		rampGeo.spec = spec
+		if not ok then error(err, 0) end
+	end
+end
+
 -- Take the captured params straight from con.lua so the tests can't
 -- drift from the street list the game actually passes in.
 local function defaultCap()
@@ -255,17 +279,31 @@ end)
 ------------------------------------------------------------------------
 -- Every edge list is a STREET and references the captured template
 ------------------------------------------------------------------------
+-- The template an edge of the ramp is laid with: the chosen street on the
+-- flat approach (ends at x <= 0) and on the underground runout (starts at
+-- x >= L), its descent (sidewalk-less, 2026-11-26) from x = 0 to L.
+local function expectedRefOf(e, street, L)
+	local xa, xb = e.edges[1][1][1], e.edges[2][1][1]
+	if math.max(xa, xb) <= 1e-9 or math.min(xa, xb) >= L - 1e-9 then return street.ref end
+	return street.descent and street.descent.ref or street.ref
+end
+
 test("edges: all edges are type STREET and use the selected template; none align terrain (subcon does)", function()
 	local cap = defaultCap()
 	local r = script.updateFn(cap, defaultParams())
 	-- defaultParams omits rtr_street, so the script falls back to idx 3
-	-- (town_new_small) — the same template as before Step B.
-	local expectedRef = cap.streets[3].ref
+	-- (town_new_small); its descent is ramp_descent_town_small.
+	local street = cap.streets[3]
+	local n = { [street.ref] = 0, [street.descent.ref] = 0 }
 	for i, e in ipairs(r.edgeLists) do
 		eq(e.type, "STREET", "edge " .. i .. " type")
-		eq(e.params.type, expectedRef, "edge " .. i .. " template")
+		eq(e.params.type, expectedRefOf(e, street, 100), "edge " .. i .. " template")
+		n[e.params.type] = n[e.params.type] + 1
 		eq(e.alignTerrain, false, "edge " .. i .. " must not align terrain in Phase 2 (subcon owns it)")
 	end
+	-- the approach and the one runout piece; the descent's eight or more
+	eq(n[street.ref], 2, "approach and runout")
+	assert(n[street.descent.ref] >= 8, "descent edges: " .. n[street.descent.ref])
 end)
 
 test("edges: selecting a different street index swaps every edge's template", function()
@@ -273,9 +311,8 @@ test("edges: selecting a different street index swaps every edge's template", fu
 	-- Pick the widest option (town_new_large = 32m) so the template
 	-- change is unambiguous and simultaneously forces a wider geometry.
 	local r = script.updateFn(cap, defaultParams({ rtr_street = 7 }))
-	local expectedRef = cap.streets[7].ref
 	for i, e in ipairs(r.edgeLists) do
-		eq(e.params.type, expectedRef, "edge " .. i .. " template must follow rtr_street")
+		eq(e.params.type, expectedRefOf(e, cap.streets[7], 100), "edge " .. i .. " template must follow rtr_street")
 	end
 end)
 
@@ -392,7 +429,7 @@ test("count: portal top cover width tracks halfSpread + halfWidth + 1 + 2.4", fu
 	near(coverWidth(3), 58.8, 1e-6, "count=3 portal cover width must widen to 58.8m")
 end)
 
-test("count: walls stretch out to halfSpread + halfWidth + 1 on both sides", function()
+test("count: walls stretch out to halfSpread + halfWidth + 1 on both sides", withoutDescent(function()
 	-- With town_new_small (halfWidth=8) and pitch=18, count=2 gives
 	-- halfSpread=9, so outer = 18 and walls sit at y = ±18.
 	local cap = defaultCap()
@@ -407,9 +444,9 @@ test("count: walls stretch out to halfSpread + halfWidth + 1 on both sides", fun
 		assert(wallSeen[expectedY], string.format("count=%d must place walls at y=%d", cnt, expectedY))
 		assert(wallSeen[-expectedY], string.format("count=%d must place walls at y=-%d", cnt, expectedY))
 	end
-end)
+end))
 
-test("walls: outer offset follows the selected street's half-width for every entry", function()
+test("walls: outer offset follows the selected street's half-width for every entry", withoutDescent(function()
 	local cap = defaultCap()
 	-- Cover all six captured streets so a wrong width in any single
 	-- entry is caught immediately (half-width + 1.0 clearance).
@@ -432,7 +469,7 @@ test("walls: outer offset follows the selected street's half-width for every ent
 			idx, cap.streets[idx].width, expectedY))
 		assert(wallSeen[-expectedY], string.format("idx %d must also place walls at y=-%.1f", idx, expectedY))
 	end
-end)
+end))
 
 ------------------------------------------------------------------------
 -- The approach segment is flat; the tunnel segments reference the tunnel
@@ -787,7 +824,7 @@ test("walls: both sides covered along the whole surface trench", function()
 	end
 end)
 
-test("walls: wall offset keeps clear of the sidewalk edge", function()
+test("walls: wall offset keeps clear of the sidewalk edge", withoutDescent(function()
 	-- With halfWidth=8m and outer=halfWidth+1=9m, the wall centreline is
 	-- at |y|=9m. Wall mesh half-depth is 0.225 scaled by 2.667 → 0.6m,
 	-- so the inner face sits at |y|=8.4m -- 0.4m outside the sidewalk edge.
@@ -795,9 +832,9 @@ test("walls: wall offset keeps clear of the sidewalk edge", function()
 	local right = modelsByTagPrefix(r, "wall_1_")
 	assert(#right > 0, "need wall segments to check")
 	near(right[1].transf[14], 9, 1e-6, "wall centreline must be 9m from road centre")
-end)
+end))
 
-test("walls: transf stays in sync with the rail-mod scale formulas", function()
+test("walls: transf stays in sync with the rail-mod scale formulas", withoutDescent(function()
 	-- Catches scale-formula regressions the position-only tests miss:
 	-- for a straight ramp, each segment's transf must match the Enivia
 	-- rail recipe exactly (2.667 thickness scale; height = 0.3 - bottom;
@@ -823,7 +860,7 @@ test("walls: transf stays in sync with the rail-mod scale formulas", function()
 	local approx = shallow.transf[15]  -- = Z + bottom = min(za,zb) - 1.5
 	assert(approx <= -1.5 + 1e-6, "shallow wall base must sit at or below -1.5m")
 	assert(deep.transf[15] < approx,  "deep wall base must sit below the shallow one")
-end)
+end))
 
 test("portal cover: one slab over the portal tangent at depth D, laid in 4m pieces", function()
 	local cap = defaultCap()
@@ -846,7 +883,7 @@ test("portal cover: one slab over the portal tangent at depth D, laid in 4m piec
 	near(one[1].transf[1], 18, 1e-9, "18m long")
 end)
 
-test("coping: slabs on top of the walls on both sides", function()
+test("coping: slabs on top of the walls on both sides", withoutDescent(function()
 	local r = script.updateFn(defaultCap(), defaultParams())
 	local left = modelsByTagPrefix(r, "coping_-1_")
 	local right = modelsByTagPrefix(r, "coping_1_")
@@ -863,7 +900,7 @@ test("coping: slabs on top of the walls on both sides", function()
 	eq(sample.transf[5], 0, "straight segment: transf[5] must be zero")
 	near(sample.transf[6], 3.05 / 0.45, 1e-6, "coping width scale must be 3.05/0.45 for a 3.05m slab")
 	near(sample.transf[11], 0.25, 1e-6, "coping thickness must be 0.25m")
-end)
+end))
 
 test("terrain: subconstruction carries floor (EQUAL), shoulders (EQUAL), cover (LESS) and lid support (GREATER)", function()
 	local r = script.updateFn(defaultCap(), defaultParams())
@@ -1179,6 +1216,10 @@ test("strings: every _() key used by con.lua, its cars-only street and the grade
 	local cf = assert(io.open(root .. "/content/road_tunnel_ramp/ramp.con.lua")); local c = cf:read("*a"); cf:close()
 	local tf = assert(io.open(root .. "/content/road_tunnel_ramp/streets/ramp_car_only.street_template.lua"))
 	c = c .. tf:read("*a"); tf:close()
+	-- and the descents' (2026-11-26)
+	tf = assert(io.open(root .. "/content/road_tunnel_ramp/streets/ramp_descent_town_small.street_template.lua"))
+	c = c .. tf:read("*a"); tf:close()
+	assert(c:find("rtr_descent_name", 1, true), "descent name key")
 	local keys = { "rtr_grade_label", "rtr_ground_line" }
 	for key in c:gmatch('_%("([%w_]+)"%)') do keys[#keys + 1] = key end
 	assert(#keys > 10, "string scan found too few keys")
@@ -1397,7 +1438,7 @@ local function allFinite(t, path)
 	end
 end
 
-test("ground 0/0: edges, models, floor, cover, snap and cost match the build before the option", function()
+test("ground 0/0: edges, models, floor, cover, snap and cost match the build before the option", withoutDescent(function()
 	local cap = defaultCap()
 	local cases = {}
 	for _, st in ipairs({ 1, 3, 7 }) do
@@ -1432,7 +1473,7 @@ test("ground 0/0: edges, models, floor, cover, snap and cost match the build bef
 			end
 		end
 	end
-end)
+end))
 
 -- along/across cases: uphill + right side high, downhill + left side high.
 local slopeCases = {
@@ -1459,7 +1500,7 @@ local function expectSurface(r, g, D)
 	end
 end
 
-test("ground: wall tops follow the plane on both sides and at both ends of every segment", function()
+test("ground: wall tops follow the plane on both sides and at both ends of every segment", withoutDescent(function()
 	for _, sc in ipairs(slopeCases) do
 		local r = oneBox(script.updateFn(defaultCap(), defaultParams({ rtr_ground_along = sc.along, rtr_ground_across = sc.across })))
 		local g = expectGround(sc.along, sc.across, 20, 0)
@@ -1489,9 +1530,9 @@ test("ground: wall tops follow the plane on both sides and at both ends of every
 			near(last[15] + last[11] + last[3], g(last[13] + last[1], last[14]) + liftOf(r, g) + 0.3, 1e-9, "last segment on the (lifted) plane")
 		end
 	end
-end)
+end))
 
-test("ground: walls and shoulders run on along the approach to the snap point without a step", function()
+test("ground: walls and shoulders run on along the approach to the snap point without a step", withoutDescent(function()
 	for _, sc in ipairs(slopeCases) do
 		local r = oneBox(script.updateFn(defaultCap(), defaultParams({ rtr_ground_along = sc.along, rtr_ground_across = sc.across })))
 		local g = expectGround(sc.along, sc.across, 20, 0)
@@ -1526,11 +1567,11 @@ test("ground: walls and shoulders run on along the approach to the snap point wi
 	end
 	local flat = script.updateFn(defaultCap(), defaultParams())
 	eq(#modelsByTagPrefix(flat, "approach_"), 0, "level ground: no approach walls (the old layout)")
-end)
+end))
 
 -- Every cover length's ends (rtr_cover_length): the slider's shortest
 -- (LID_MIN), the initial 18m and the longest.
-test("ground: steep downhill keeps the lid and the ground under it out of the tunnel", function()
+test("ground: steep downhill keeps the lid and the ground under it out of the tunnel", withoutDescent(function()
 	for _, C in ipairs({ rampGeo.LID_MIN, 18, 24 }) do
 	for _, D in ipairs({ 13, 16, 25 }) do
 		for _, along in ipairs({ -4, -6, -10, -20 }) do
@@ -1588,9 +1629,9 @@ test("ground: steep downhill keeps the lid and the ground under it out of the tu
 		end
 	end
 	end
-end)
+end))
 
-test("ground: walls start at the road with no step (downhill keeps them at road + 0.3)", function()
+test("ground: walls start at the road with no step (downhill keeps them at road + 0.3)", withoutDescent(function()
 	for _, sc in ipairs(slopeCases) do
 		local r = oneBox(script.updateFn(defaultCap(), defaultParams({ rtr_ground_along = sc.along, rtr_ground_across = sc.across })))
 		local g = expectGround(sc.along, sc.across, 20, 0)
@@ -1602,7 +1643,7 @@ test("ground: walls start at the road with no step (downhill keeps them at road 
 			assert(top >= 0.3 - 1e-9, "wall top never below road + 0.3 at the start")
 		end
 	end
-end)
+end))
 
 test("ground: coping follows the plane along and across", function()
 	local r = script.updateFn(defaultCap(), defaultParams({ rtr_ground_along = 8, rtr_ground_across = 5 }))
@@ -1673,7 +1714,7 @@ test("ground: shoulder, cover and lid-support faces follow the plane", function(
 	end
 end)
 
-test("ground: shoulders widen, run past the lid and keep out of the lid area; lid support skips the trench mouth", function()
+test("ground: shoulders widen, run past the lid and keep out of the lid area; lid support skips the trench mouth", withoutDescent(function()
 	for _, C in ipairs({ rampGeo.LID_MIN, 18, 24 }) do
 	local r = script.updateFn(defaultCap(), defaultParams({ rtr_ground_along = 5, rtr_cover_length = C }))
 	local lists = r.subconstructions[1].terrainAlignmentLists
@@ -1713,7 +1754,7 @@ test("ground: shoulders widen, run past the lid and keep out of the lid area; li
 		assert(not overlaps(f, coverA, px, -floorOuter, floorOuter), "lid support would fill the trench mouth")
 	end
 	end
-end)
+end))
 
 test("ground: the portal search measures the cover from the plane (lower edge of the lid)", function()
 	local flat = portalXOf(script.updateFn(defaultCap(), defaultParams()))
@@ -2806,7 +2847,7 @@ do
 		end
 	end)
 
-	test("lidwidth: on level ground and along-only slopes the edges, snap, cost, walls and floor are those of the build before (1.0.0's 36m cover)", lid36(function()
+	test("lidwidth: on level ground and along-only slopes the edges, snap, cost, walls and floor are those of the build before (1.0.0's 36m cover)", lid36(withoutDescent(function()
 		for i, p in ipairs(cases) do
 			for _, sl in ipairs({ { nil, nil }, { 0, 0 }, { 8, 0 }, { -8, 0 } }) do
 				local q = {}
@@ -2839,7 +2880,7 @@ do
 				eq(ncp[1].transf[11], ocp[1].transf[11], tag .. " coping thickness")
 			end
 		end
-	end))
+	end)))
 
 	test("lidwidth: the model footprint gets narrower, never wider", function()
 		local function maxY(r)
@@ -2899,7 +2940,7 @@ do
 		end
 	end
 
-	test("geometry: ramp.script returns exactly what it did before the move (7 streets x 1-3 x slope, length, depth, curvature) (1.0.0's 36m cover)", lid36(function()
+	test("geometry: ramp.script returns exactly what it did before the move (7 streets x 1-3 x slope, length, depth, curvature) (1.0.0's 36m cover)", lid36(withoutDescent(function()
 		local cap = defaultCap()
 		local n = 0
 		for st = 1, 7 do
@@ -2918,9 +2959,9 @@ do
 		local old = rampBefore.updateFn(cap, {})
 		sameBits(asBefore(script.updateFn(cap, kept({})), old), old, "empty params")
 		assert(n == 7 * 3 * #variants, "cases run: " .. n)
-	end))
+	end)))
 
-	test("geometry: the tunnel fallback through api gives the same result as before (1.0.0's 36m cover)", lid36(function()
+	test("geometry: the tunnel fallback through api gives the same result as before (1.0.0's 36m cover)", lid36(withoutDescent(function()
 		local cap = defaultCap()
 		local savedApi = api
 		local found = {}
@@ -2950,7 +2991,7 @@ do
 		end)
 		api = savedApi
 		assert(ok, err)
-	end))
+	end)))
 
 	-- half the y extent of a concrete.mdl piece (the mesh is 0.45m wide)
 	local function halfY(m) return math.abs(m.transf[6]) * 0.225 end
@@ -3397,7 +3438,8 @@ do
 			eq(cap.streets[i].ref, w[1], "entry " .. i)
 			eq(cap.streets[i].width, w[2], "entry " .. i .. " width")
 			local r = script.updateFn(cap, { rtr_street = i })
-			for _, e in ipairs(r.edgeLists) do eq(e.params.type, w[1], "entry " .. i .. " edges") end
+			-- the approach and runout; the descent is its sidewalk-less one
+			for _, e in ipairs(r.edgeLists) do eq(e.params.type, expectedRefOf(e, cap.streets[i], 100), "entry " .. i .. " edges") end
 		end
 	end)
 
@@ -3461,7 +3503,7 @@ do
 		["7/3"] = "31817:1977434074",
 	}
 
-	test("car only: entries 1-7 build exactly what they built before the cars-only template (whole result digest) (1.0.0's 36m cover)", lid36(function()
+	test("car only: entries 1-7 build exactly what they built before the cars-only template (whole result digest) (1.0.0's 36m cover)", lid36(withoutDescent(function()
 		local cap = defaultCap()
 		local got = {}
 		for i = 1, 7 do
@@ -3479,7 +3521,7 @@ do
 			n = n + 1
 		end
 		eq(n, 21, "cases")
-	end))
+	end)))
 
 	test("car only: every edge is the 8m template, each street one unbroken chain from the snapped near end to the runout", function()
 		local cap = defaultCap()
@@ -3612,7 +3654,7 @@ do
 		assert(not ok and tostring(err):find("spec.wall.half", 1, true), "incomplete wall: " .. tostring(err))
 	end)
 
-	test("wall: thick (3.4m) builds exactly what the ramp built before the option (every entry, whole result) (1.0.0's 36m cover)", lid36(function()
+	test("wall: thick (3.4m) builds exactly what the ramp built before the option (every entry, whole result) (1.0.0's 36m cover)", lid36(withoutDescent(function()
 		local cap = defaultCap()
 		local n = 0
 		for st = 1, #cap.streets do
@@ -3629,9 +3671,9 @@ do
 		local g = geometry.layout(geometry.spec(cap, { rtr_wall = 2 }))
 		near(g.copingOut - (g.outer - 1.0), 3.4, 1e-12, "3.4m from the street edge")
 		eq(#tagged(geometry.build(geometry.spec(cap, { rtr_wall = 2 })), "parapet_"), 0, "no parapet")
-	end))
+	end)))
 
-	test("wall: thin (1.5m) is the wall on the street edge, a 1.0m wall and a 0.5m top band; the lid, floor and banks follow", function()
+	test("wall: thin (1.5m) is the wall on the street edge, a 1.0m wall and a 0.5m top band; the lid, floor and banks follow", withoutDescent(function()
 		local cap = defaultCap()
 		local n = 0
 		for st = 1, #cap.streets do
@@ -3702,7 +3744,7 @@ do
 			end
 		end
 		eq(n, 8 * #VARIANTS, "cases")
-	end)
+	end))
 
 	test("wall: on a stated slope the thin wall's approach walls get parapets too; level ground has none", function()
 		local cap = defaultCap()
@@ -3961,7 +4003,7 @@ do
 
 	-- ramp_geometry.lua as it stood with the 0 / 1 switch only
 	-- (tests/fixtures/ramp_geometry_before_depotstyle.lua).
-	test("joint: adding hand-over 2 leaves 0, 1, missing and junk below 1.5 as they were (1.0.0's 36m cover)", lid36(function()
+	test("joint: adding hand-over 2 leaves 0, 1, missing and junk below 1.5 as they were (1.0.0's 36m cover)", lid36(withoutDescent(function()
 		local cap = defaultCap()
 		local before = assert(loadfile(root .. "/tests/fixtures/ramp_geometry_before_depotstyle.lua"))()
 		for ci, p in ipairs(CASES) do
@@ -3975,7 +4017,7 @@ do
 					"case " .. ci .. " hand-over " .. tostring(v))
 			end
 		end
-	end))
+	end)))
 end
 
 ------------------------------------------------------------------------
@@ -4513,7 +4555,10 @@ do
 				most = math.max(most, n(b[2]))
 			end
 		end
-		eq(n(script.updateFn(defaultCap(), cases[#cases])), 577, "the widest, tallest ramp")
+		-- (578 since 2026-11-26: the descent's walls stand 2.5m further in,
+		-- so on the cross slope their heights, and one stack's box count,
+		-- differ)
+		eq(n(script.updateFn(defaultCap(), cases[#cases])), 578, "the widest, tallest ramp")
 		assert(most <= 600, "at most " .. most .. " models")
 		if os.getenv("RTR_PRINT_COUNTS") then
 			print("     most models in the cases: " .. most)
@@ -5070,6 +5115,342 @@ do
 		local before = loadData("/content/road_tunnel_ramp/ramp.con.lua")
 		assert(setting.applyToCon(d, MIN), "the shortest is on the slider")
 		deepEq(d.updateScript, before.updateScript, "updateScript untouched")
+	end)
+end
+
+------------------------------------------------------------------------
+-- Descent without sidewalks (2026-11-26). With the thin wall a narrow
+-- groove showed along the top's outer edge, deeper toward the portal: the
+-- terrain's 1m points under the wall are at the trench floor, those outside
+-- at the ground, and the slope between them reached about 0.4m past the
+-- top [measured TC4]. The user: 「擁壁に沿って、だんだん深くなるような細い溝が
+-- みえます。」「要望として全体の幅を増やすのはしたくない」「まず「地下傾斜路に
+-- 歩道」はいらないと思います。そもそも歩行者が通る理由がないのでは？」.
+-- So the descent (x = 0 to L) is the chosen street's lanes with 0.5m
+-- shoulders (streets/ramp_descent_*), the width taken off goes to the
+-- walls, the outer edge stays, and the floor and the banks meet halfway
+-- across the wider band.
+------------------------------------------------------------------------
+do
+	local geometry = rampGeo
+	local GR = geometry.GRID_REACH
+	local cap = defaultCap()
+	-- a copy of a cap street without its descent (the body before)
+	local function bare(st)
+		local t = {}
+		for k, v in pairs(st) do if k ~= "descent" then t[k] = v end end
+		return t
+	end
+	local function specFor(i, p)
+		local sp = geometry.spec(cap, p)
+		return sp
+	end
+	local SLOPES = { { 0, 0 }, { 8, 5 }, { -6, -10 }, { 20, 20 } }
+
+	local STREET_ZIP = os.getenv("HOME") .. "/.local/share/Steam/steamapps/common/Transport Fever 3/base/content/infrastructure/street.zip"
+	local function baseTemplate(ref)
+		local sub = ref:match("^::/infrastructure/street(.*)$")
+		local fh = io.open(STREET_ZIP, "rb")
+		if not (sub and fh) then return nil end
+		fh:close()
+		local p = assert(io.popen(string.format("unzip -p %q %q 2>/dev/null", STREET_ZIP, "street" .. sub .. ".lua")))
+		local src = p:read("*a"); p:close()
+		if src == "" then return nil end
+		local env = setmetatable({ _ = function(x) return x end }, { __index = _G })
+		local chunk = assert(loadstring(src, sub)); setfenv(chunk, env); chunk()
+		return env.data()
+	end
+
+	test("descent: entries 1-7 have a sidewalk-less descent, the cars-only one none; the median's centres the same", function()
+		for i = 1, 7 do
+			local st = cap.streets[i]
+			assert(st.descent, "entry " .. i .. " descent")
+			assert(st.descent.ref:find("^road_tunnel_ramp::/road_tunnel_ramp/streets/ramp_descent_"), st.descent.ref)
+			assert(st.descent.width < st.width, "entry " .. i .. " narrower")
+		end
+		eq(cap.streets[8].descent, nil, "cars-only: no sidewalk to take off")
+		for n, c in pairs(medianGeo.CENTRES) do
+			local ok, why = sameValue(c.descent, cap.streets[n].descent, "centre " .. n)
+			assert(ok, why)
+		end
+	end)
+
+	test("descent: each template is the base street's car lanes, as they are, between 0.5m shoulders that carry nothing; hidden", function()
+		local seenBase = 0
+		for i = 1, 7 do
+			local st = cap.streets[i]
+			local t = templateOf(st.descent.ref)
+			eq(laneWidth(t), st.descent.width, "entry " .. i .. " width")
+			local lanes = t.laneConfigs
+			for k, lane in ipairs(lanes) do
+				assert(not hasMode(lane, "PERSON") and not hasMode(lane, "CARGO"), "entry " .. i .. " lane " .. k .. " carries people")
+				eq(lane.height, 0, "entry " .. i .. " lane " .. k .. " no raised sidewalk")
+			end
+			for _, k in ipairs({ 1, #lanes }) do
+				eq(lanes[k].width, 0.5, "entry " .. i .. " shoulder " .. k)
+				eq(#lanes[k].transportModes, 0, "entry " .. i .. " shoulder " .. k .. " carries nothing")
+			end
+			eq(t.menuCategory, nil, "entry " .. i .. " not in the build menu")
+			eq(t.availability.yearFrom, 0, "entry " .. i .. " availability")
+			eq(t.availability.yearTo, 0, "entry " .. i .. " availability")
+			eq(t.initiallyLocked, true, "entry " .. i .. " locked")
+			eq(t.simBuildable, nil, "entry " .. i .. " towns do not build it")
+			eq(t.description.name, "rtr_descent_name", "entry " .. i .. " name")
+			-- town styles draw curbs and sidewalk paving on the outer lanes
+			assert(not t.streetStyle:find("/town/"), "entry " .. i .. " style " .. t.streetStyle)
+			local base = baseTemplate(st.ref)
+			if base then
+				seenBase = seenBase + 1
+				local bl = base.laneConfigs
+				eq(#lanes, #bl, "entry " .. i .. " same lane count as the base")
+				for k = 2, #bl - 1 do
+					for _, f in ipairs({ "forward", "offset", "width", "speed", "height" }) do
+						eq(lanes[k][f], bl[k][f], "entry " .. i .. " lane " .. k .. " " .. f)
+					end
+					local ok, why = sameValue(lanes[k].transportModes, bl[k].transportModes, "entry " .. i .. " lane " .. k)
+					assert(ok, why)
+				end
+				-- the base's outer lanes are its sidewalks or shoulders
+				eq(st.width - st.descent.width, bl[1].width + bl[#bl].width - 1, "entry " .. i .. " width taken off")
+			end
+		end
+		if seenBase == 0 then print("     (base part skipped: street.zip not found)") end
+	end)
+
+	test("descent: the walls' outer edge, the cover, the banks and the portal are where 1.1.0 had them (every entry, wall, count, slope)", function()
+		for i = 1, 8 do
+			for _, wall in ipairs({ 1, 2 }) do
+				for count = 1, 3 do
+					for _, sl in ipairs(SLOPES) do
+						local p = { rtr_street = i, rtr_wall = wall, rtr_count = count,
+							rtr_ground_along = sl[1], rtr_ground_across = sl[2] }
+						local sp = geometry.spec(cap, p)
+						local g = geometry.layout(sp)
+						sp.street = bare(sp.street)
+						local g0 = geometry.layout(sp)
+						local tag = string.format("street %d wall %d count %d slope %d/%d", i, wall, count, sl[1], sl[2])
+						for _, k in ipairs({ "copingOut", "roofHalf", "lidEdge", "shoulderOut", "portalX", "lidA", "lidB",
+							"lift", "halfSpread", "pitch", "coverA", "coverB", "runoutEnd" }) do
+							near(g[k], g0[k], 1e-9, tag .. " " .. k)
+						end
+						-- the whole width: the street, and the wall each side
+						local street = cap.streets[i]
+						near(g.copingOut, g.halfSpread + street.width * 0.5 + (wall == 1 and 1.5 or 3.4), 1e-9, tag .. " C")
+						for k = 1, count do eq(g.ys[k], g0.ys[k], tag .. " street " .. k) end
+					end
+				end
+			end
+		end
+	end)
+
+	test("descent: the cover, its terrain and the banks past it are built as without the descent (ramp)", function()
+		for i = 1, 7 do
+			for _, wall in ipairs({ 1, 2 }) do
+				local p = { rtr_street = i, rtr_wall = wall, rtr_ground_along = 8, rtr_ground_across = 5 }
+				local r = script.updateFn(cap, p)
+				local r0
+				withoutDescent(function() r0 = script.updateFn(defaultCap(), p) end)()
+				local tag = string.format("street %d wall %d", i, wall)
+				local a, b = modelsByTagPrefix(r, "portal_top_cover_"), modelsByTagPrefix(r0, "portal_top_cover_")
+				local ok, why = sameValue(a, b, tag .. " cover")
+				assert(ok, why)
+				-- cover (LESS) and lid support (GREATER) lists
+				local la, lb = r.subconstructions[1].terrainAlignmentLists, r0.subconstructions[1].terrainAlignmentLists
+				eq(#la, #lb, tag .. " lists")
+				ok, why = sameValue(la[3], lb[3], tag .. " cover face"); assert(ok, why)
+				eq(r.cost, r0.cost, tag .. " cost")
+			end
+		end
+	end)
+
+	-- I, F, S and C of a built ramp's descent, read off the result: the
+	-- walls' inner face (the wall models), the floor faces' edge, the
+	-- banks' inner edge (shoulder faces along the trench) and the coping's
+	-- outer edge.
+	local function bandOf(r, g)
+		local function halfY(m) return 0.225 * math.sqrt(m.transf[5] ^ 2 + m.transf[6] ^ 2) end
+		local I, C = math.huge, -math.huge
+		for _, m in ipairs(modelsByTagPrefix(r, "wall_1_")) do I = math.min(I, m.transf[14] - halfY(m)) end
+		local outerFace = -math.huge
+		for _, m in ipairs(modelsByTagPrefix(r, "wall_1_")) do outerFace = math.max(outerFace, m.transf[14] + halfY(m)) end
+		for _, m in ipairs(modelsByTagPrefix(r, "coping_1_")) do C = math.max(C, m.transf[14] + halfY(m)) end
+		local copingIn = math.huge
+		for _, m in ipairs(modelsByTagPrefix(r, "coping_1_")) do copingIn = math.min(copingIn, m.transf[14] - halfY(m)) end
+		local lists = r.subconstructions[1].terrainAlignmentLists
+		local F = 0
+		for _, f in ipairs(lists[1].faces) do for _, v in ipairs(f) do F = math.max(F, v[2]) end end
+		local S = math.huge
+		for _, f in ipairs(lists[2].faces) do
+			local xmax, ymin = -math.huge, math.huge
+			for _, v in ipairs(f) do xmax = math.max(xmax, v[1]); ymin = math.min(ymin, v[2]) end
+			-- the trench's banks (from x = 0 to the cover's front), right side
+			if xmax <= g.coverA + 1e-9 and ymin > 0 and f[1][1] >= -1e-9 then S = math.min(S, ymin) end
+		end
+		return { I = I, F = F, S = S, C = C, outerFace = outerFace, copingIn = copingIn }
+	end
+
+	test("descent: no groove: the floor's and the banks' slopes (GRID_REACH each way) lie under the wall and its top", function()
+		assert(GR >= math.sqrt(2), "a triangle across the 1m grid spans sqrt(2)")
+		local rows = {}
+		for i = 1, 7 do
+			for _, wall in ipairs({ 1, 2 }) do
+				for count = 1, 3 do
+					for _, sl in ipairs(SLOPES) do
+						local p = { rtr_street = i, rtr_wall = wall, rtr_count = count,
+							rtr_ground_along = sl[1], rtr_ground_across = sl[2] }
+						local r = script.updateFn(cap, p)
+						local g = geometry.layout(geometry.spec(cap, p))
+						local b = bandOf(r, g)
+						local tag = string.format("street %d wall %d count %d slope %d/%d", i, wall, count, sl[1], sl[2])
+						-- the wall's inner face on the descent's edge (its 0.4m
+						-- clearance with the thick wall)
+						local edge = g.halfSpread + cap.streets[i].descent.width * 0.5
+						near(b.I, edge + (wall == 1 and 0 or 0.4), 1e-9, tag .. " I on the descent's edge")
+						near(b.I, g.wallInner, 1e-9, tag .. " I")
+						near(b.C, g.copingOut, 1e-9, tag .. " C")
+						assert(b.I + GR <= b.F + 1e-9, tag .. string.format(" I %.3f + %.2f > F %.3f", b.I, GR, b.F))
+						assert(b.I + GR <= b.S + 1e-9, tag .. string.format(" I %.3f + %.2f > S %.3f", b.I, GR, b.S))
+						assert(b.F + GR <= b.C + 1e-9, tag .. string.format(" F %.3f + %.2f > C %.3f", b.F, GR, b.C))
+						assert(b.F <= b.S + 1e-9, tag .. " no ground left loose between the floor and the banks")
+						-- the top still covers the wall: 0.05m in past its inner
+						-- face, and out past its outer face
+						near(b.copingIn, b.I - 0.05, 1e-9, tag .. " coping over the inner face")
+						assert(b.C > b.outerFace, tag .. " top past the wall")
+						if count == 1 and sl[1] == 0 and sl[2] == 0 then
+							rows[#rows + 1] = string.format("%d %s I %.2f F %.2f C %.2f", i, wall == 1 and "thin" or "thick", b.I, b.F, b.C)
+						end
+					end
+				end
+			end
+		end
+		if os.getenv("RTR_PRINT_BANDS") then for _, l in ipairs(rows) do print("     " .. l) end end
+	end)
+
+	test("descent: the wall's outer face stands where it stood; only its inner face moves in, by the width taken off", function()
+		for i = 1, 7 do
+			for _, wall in ipairs({ 1, 2 }) do
+				local p = { rtr_street = i, rtr_wall = wall }
+				local r = script.updateFn(cap, p)
+				local g = geometry.layout(geometry.spec(cap, p))
+				local r0, g0
+				withoutDescent(function()
+					r0 = script.updateFn(defaultCap(), p)
+					g0 = geometry.layout(geometry.spec(defaultCap(), p))
+				end)()
+				local b, b0 = bandOf(r, g), bandOf(r0, g0)
+				local st = cap.streets[i]
+				local extra = (st.width - st.descent.width) * 0.5
+				local tag = string.format("street %d wall %d", i, wall)
+				-- (1e-4: the thick wall's model scale was 2.667, not 1.2 / 0.45,
+				-- kept to the bit before; the descent's is exact)
+				near(b.outerFace, b0.outerFace, 1e-4, tag .. " outer face")
+				near(b.C, b0.C, 1e-9, tag .. " C")
+				near(b0.I - b.I, extra, 1e-4, tag .. " inner face")
+				eq(#modelsByTagPrefix(r, "wall_"), #modelsByTagPrefix(r0, "wall_"), tag .. " wall pieces")
+				if wall == 1 then
+					-- the parapet on the inner face, as before
+					for _, m in ipairs(modelsByTagPrefix(oneBox(r), "parapet_1_")) do
+						local half = 0.225 * math.sqrt(m.transf[5] ^ 2 + m.transf[6] ^ 2)
+						near(m.transf[14] - half, b.I, 1e-9, tag .. " parapet")
+					end
+				end
+			end
+		end
+	end)
+
+	test("descent: the flat approach keeps the chosen street, sidewalks and all, and its walls on a slope stand beside it as before", function()
+		for i = 1, 8 do
+			for _, wall in ipairs({ 1, 2 }) do
+				for count = 1, 3 do
+					local p = { rtr_street = i, rtr_wall = wall, rtr_count = count, rtr_ground_along = 8, rtr_ground_across = 5, rtr_approach = 20 }
+					local r = script.updateFn(cap, p)
+					local r0
+					withoutDescent(function() r0 = script.updateFn(defaultCap(), p) end)()
+					local tag = string.format("street %d wall %d count %d", i, wall, count)
+					local approaches = 0
+					for k, e in ipairs(r.edgeLists) do
+						local xa, xb = e.edges[1][1][1], e.edges[2][1][1]
+						if math.max(xa, xb) <= 1e-9 then
+							approaches = approaches + 1
+							eq(e.params.type, cap.streets[i].ref, tag .. " approach")
+							local ok, why = sameValue(e, r0.edgeLists[k], tag .. " approach edge " .. k)
+							assert(ok, why)
+						end
+					end
+					eq(approaches, count, tag .. " one approach a street")
+					for _, prefix in ipairs({ "approach_wall_", "approach_coping_", "approach_parapet_" }) do
+						local ok, why = sameValue(modelsByTagPrefix(r, prefix), modelsByTagPrefix(r0, prefix), tag .. " " .. prefix)
+						assert(ok, why)
+					end
+					assert(#modelsByTagPrefix(r, "approach_wall_") > 0, tag .. " approach walls")
+					-- the approach's own floor face (the 5th list on a slope)
+					local la, lb = r.subconstructions[1].terrainAlignmentLists, r0.subconstructions[1].terrainAlignmentLists
+					local ok, why = sameValue(la[5], lb[5], tag .. " approach floor"); assert(ok, why)
+				end
+			end
+		end
+		-- the town street's approach really has its sidewalks
+		local base = baseTemplate(cap.streets[3].ref)
+		if base then assert(hasMode(base.laneConfigs[1], "PERSON"), "town_new_small sidewalk") end
+	end)
+
+	test("descent: the runout under ground stays the chosen street, so a tunnel of that type meets its own type at its end", function()
+		for i = 1, 7 do
+			local r = script.updateFn(cap, { rtr_street = i, rtr_length = 100 })
+			local runouts, descents = 0, 0
+			for _, e in ipairs(r.edgeLists) do
+				local xa = math.min(e.edges[1][1][1], e.edges[2][1][1])
+				local xb = math.max(e.edges[1][1][1], e.edges[2][1][1])
+				if xa >= 100 - 1e-9 then
+					runouts = runouts + 1
+					eq(e.params.type, cap.streets[i].ref, "entry " .. i .. " runout")
+				elseif xa >= -1e-9 then
+					descents = descents + 1
+					eq(e.params.type, cap.streets[i].descent.ref, "entry " .. i .. " descent")
+				end
+			end
+			assert(runouts >= 1 and descents >= 8, "entry " .. i)
+		end
+	end)
+
+	test("descent: the median's side streets lie where they did (24m kept) and its centre's descent loses the sidewalks too", function()
+		for _, c in ipairs(medianGeo.CENTRE_ORDER) do
+			for _, wall in ipairs({ 1, 2 }) do
+				for _, entry in ipairs({ 2, 4, 6 }) do
+					local p = { rtr_street = c, rtr_wall = wall, rtr_median_entry = entry }
+					local r = median.updateFn(medianCap, p)
+					local r0
+					withoutDescent(function() r0 = median.updateFn(medianCap, p) end)()
+					local tag = string.format("centre %d wall %d entry %d", c, wall, entry)
+					local sides, sides0, descent = {}, {}, 0
+					local centre = medianGeo.CENTRES[c]
+					for _, e in ipairs(r.edgeLists) do
+						if e.params.type:find("median_") then sides[#sides + 1] = e
+						elseif centre.descent and e.params.type == centre.descent.ref then descent = descent + 1 end
+					end
+					for _, e in ipairs(r0.edgeLists) do
+						if e.params.type:find("median_") then sides0[#sides0 + 1] = e end
+					end
+					local ok, why = sameValue(sides, sides0, tag .. " side streets")
+					assert(ok, why)
+					assert(#sides >= 2, tag)
+					if centre.descent then assert(descent >= 8, tag .. " descent edges") else eq(descent, 0, tag) end
+					-- the side streets' ground, the last list, as before
+					local la, lb = r.subconstructions[1].terrainAlignmentLists, r0.subconstructions[1].terrainAlignmentLists
+					ok, why = sameValue(la[#la], lb[#lb], tag .. " side ground"); assert(ok, why)
+				end
+			end
+		end
+	end)
+
+	test("descent: extra 0 (cars-only, the approach) keeps M.WALLS as they are", function()
+		for _, w in ipairs(geometry.WALLS) do
+			eq(geometry.descentWall(w, 0), w, w.key)
+			eq(geometry.descentWall(w, nil), w, w.key)
+		end
+		local d = geometry.descentWall(geometry.WALLS[1], 2.5)
+		near(d.half * 2, 1.0 + 2.5, 1e-12, "thin wall 3.5m thick for a town street")
+		near(d.scale * 0.45, d.half * 2, 1e-12, "the model's scale")
 	end)
 end
 
