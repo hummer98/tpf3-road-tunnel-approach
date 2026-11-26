@@ -2737,7 +2737,9 @@ test("median: no game script joins the side streets: no game script file, no for
 	local n = 0
 	for path in p:lines() do
 		n = n + 1
-		assert(not path:match("%.gs%.lua$"), path .. ": a game script")
+		-- (the one game script left is the approach's tram lay-again (Unreleased):
+		-- it joins nothing)
+		assert(not path:match("%.gs%.lua$") or path == "content/rtr_approach_tram.gs.lua", path .. ": a game script")
 		for _, gone in ipairs({ "rtr_median_close", "median_close", "median_fork_", "fork22" }) do
 			assert(not path:find(gone, 1, true), path .. ": " .. gone)
 		end
@@ -5969,6 +5971,12 @@ do
 		end
 	end)
 end
+
+------------------------------------------------------------------------
+-- The flat approach's tram track Right / Left: laid again after the build
+-- with the other side's track off (tests/approach_tram_tests.lua)
+------------------------------------------------------------------------
+assert(loadfile(root .. "/tests/approach_tram_tests.lua"))(test, eq, root, rampGeo)
 
 print(string.format("\n%d passed, %d failed", passes, failures))
 os.exit(failures == 0 and 0 or 1)

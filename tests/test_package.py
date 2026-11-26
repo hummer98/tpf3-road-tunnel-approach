@@ -46,7 +46,12 @@ class PackageTest(unittest.TestCase):
                 # the mod setting Initial portal cover length (mod.json
                 # runScript and the module it requires)
                 "content/mod.script.lua",
-                "content/road_tunnel_ramp/cover_setting.lua"]
+                "content/road_tunnel_ramp/cover_setting.lua",
+                # Tram track Right / Left on the flat approach: the game
+                # script that lays it again after the build, and its module
+                "content/rtr_approach_tram.gs.lua",
+                "content/rtr_approach_tram.script.lua",
+                "content/road_tunnel_ramp/approach_tram.lua"]
         # the cover is shot in game after the code is ready; until then
         # check() refuses to build (test_missing_cover_stops_...), so a
         # release can never go out without it

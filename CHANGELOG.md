@@ -20,6 +20,14 @@ The first public release is 1.0.0 (`revision` 10000).
   the Median Tunnel Approach the centre gets the track, the side streets
   none. With a track the tunnel stub is a tram copy of the descent's street, so a
   tunnel laid on from it is another type.
+- **Right / Left on the flat approach of a street with sidewalks**: the
+  game lays the approach's track in both directions' outer lanes (it needs
+  the edges' tram track type there), so a game script lays the handed-over
+  approach again right after the build, with the track taken off the lanes
+  of the other direction. If the game refuses it, or the approach is not
+  found, the approach keeps both tracks (logged). The descent, the tunnel
+  and the Median Tunnel Approach's side streets are as before. Not yet
+  checked in a game.
 
 ### Changed
 - **Underground depth** (both constructions) is set in 0.5 m steps: 13,
