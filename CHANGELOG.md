@@ -14,9 +14,7 @@ The first public release is 1.0.0 (`revision` 10000).
   6 m). A 6 m cover covers nothing past the portal, and the top of the
   game's tunnel portal piece showed beyond its end. The mod setting
   **Initial portal cover length** has the same range. 18 m initially and
-  24 m at most, as before. A ramp placed in 1.1.0 with a cover shorter than
-  the new lower end gets the shortest length when it is rebuilt (its
-  settings window shows that length too).
+  24 m at most, as before.
 
 ## [1.1.0] - 2026-11-26
 

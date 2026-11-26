@@ -86,10 +86,19 @@ class ChangeLidMinTest(unittest.TestCase):
     """8 or 12 instead of 10: the constant, then the tool, and every test
     that holds the range passes again (in a copy of the repository)."""
 
-    def change(self, lid_min):
+    def change(self, lid_min, released=False):
         with tempfile.TemporaryDirectory() as tmp:
             root = os.path.join(tmp, "repo")
             copy_repo(root)
+            if released:
+                # as release.py leaves it before it runs these tests: an empty
+                # Unreleased above the new version's section
+                log = os.path.join(root, "CHANGELOG.md")
+                with open(log, encoding="utf-8") as f:
+                    text = f.read()
+                text = text.replace("## [Unreleased]\n", "## [Unreleased]\n\n## [9.9.9] - 2026-11-27\n", 1)
+                with open(log, "w", encoding="utf-8") as f:
+                    f.write(text)
             geo = os.path.join(root, cover_range.GEOMETRY)
             with open(geo, encoding="utf-8") as f:
                 text = f.read()
@@ -97,9 +106,16 @@ class ChangeLidMinTest(unittest.TestCase):
             self.assertEqual(n, 1)
             with open(geo, "w", encoding="utf-8") as f:
                 f.write(text)
-            self.assertEqual(cover_range.stale(root),
-                             sorted(["mod.json", "README.md", os.path.join("docs", "modio_description.md"),
-                                     os.path.join("_metadata", "modinfo.json"), "CHANGELOG.md"]))
+            # The CHANGELOG only while its Unreleased section names the range
+            # (after a release it is empty, and the released sections stay;
+            # release.py runs these tests right after cutting it)
+            with open(os.path.join(root, "CHANGELOG.md"), encoding="utf-8") as f:
+                unreleased = re.split(r"^## \[(?!Unreleased)", f.read().split("## [Unreleased]", 1)[1],
+                                      maxsplit=1, flags=re.M)[0]
+            in_log = cover_range.fix_ranges(unreleased, lid_min, 24) != unreleased
+            want = ["mod.json", "README.md", os.path.join("docs", "modio_description.md"),
+                    os.path.join("_metadata", "modinfo.json")] + (["CHANGELOG.md"] if in_log else [])
+            self.assertEqual(cover_range.stale(root), sorted(want))
             tool = os.path.join(root, "tools", "cover_range.py")
             r = subprocess.run([sys.executable, tool], capture_output=True, text=True)
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
@@ -110,7 +126,8 @@ class ChangeLidMinTest(unittest.TestCase):
             self.assertEqual(p["values"][p["defaultIndex"]], "18m")
             with open(os.path.join(root, "CHANGELOG.md"), encoding="utf-8") as f:
                 log = f.read()
-            self.assertIn("%d–24 m" % lid_min, log.split("## [1.1.0]")[0])
+            if in_log:
+                self.assertIn("%d–24 m" % lid_min, log.split("## [Unreleased]", 1)[1].split("\n## [", 1)[0])
             self.assertIn("6–24 m", log.split("## [1.1.0]")[1], "1.1.0's section as released")
             r = subprocess.run(["luajit", "tests/run.lua"], cwd=root, capture_output=True, text=True)
             self.assertEqual(r.returncode, 0, r.stdout[-3000:] + r.stderr)
@@ -123,6 +140,9 @@ class ChangeLidMinTest(unittest.TestCase):
 
     def test_12(self):
         self.change(12)
+
+    def test_8_after_a_release(self):
+        self.change(8, released=True)
 
 
 if __name__ == "__main__":
