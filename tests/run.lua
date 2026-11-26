@@ -64,6 +64,26 @@ test("script: exports updateFn", function()
 	assert(type(script.updateFn) == "function", "updateFn missing")
 end)
 
+-- 1.0.0's portal cover, 36m long, which the menu no longer offers
+-- (rtr_cover_length is 6-24m, out of range reads as 18m): fn runs with every
+-- spec read by ramp_geometry.spec (the ramp's, the median's, the tests'
+-- own calls) given lidLength 36, so the frozen builds before the option can
+-- still be compared bit for bit through the real scripts.
+local rampGeo = require "road_tunnel_ramp::/road_tunnel_ramp/ramp_geometry.lua"
+local function lid36(fn)
+	return function(...)
+		local spec = rampGeo.spec
+		rampGeo.spec = function(...)
+			local s = spec(...)
+			s.lidLength = 36
+			return s
+		end
+		local ok, err = pcall(fn, ...)
+		rampGeo.spec = spec
+		if not ok then error(err, 0) end
+	end
+end
+
 -- Take the captured params straight from con.lua so the tests can't
 -- drift from the street list the game actually passes in.
 local function defaultCap()
@@ -809,10 +829,11 @@ test("portal cover: one slab over the portal tangent at depth D, laid in 4m piec
 	local cap = defaultCap()
 	local r = script.updateFn(cap, defaultParams())
 	local covers = modelsByTagPrefix(r, "portal_top_cover")
-	-- 36m in pieces of at most 4m (ramp_geometry.COVER_PIECE) along, and
-	-- the 22.8m width (the thick wall a spec without rtr_wall gets) in six
-	-- pieces across (ramp_geometry.coverAcross)
-	eq(#covers, 9 * 6, "the cover in nine 4m pieces along, six across")
+	-- 18m (rtr_cover_length's initial setting) in pieces of at most 4m
+	-- (ramp_geometry.COVER_PIECE) along, five of 3.6m, and the 22.8m width
+	-- (the thick wall a spec without rtr_wall gets) in six pieces across
+	-- (ramp_geometry.coverAcross)
+	eq(#covers, 5 * 6, "the cover in five 3.6m pieces along, six across")
 	local one = modelsByTagPrefix(oneBox(r), "portal_top_cover")
 	eq(#one, 1, "one slab when added up")
 	near(one[1].transf[6] * 0.45, 22.8, 1e-9, "22.8m wide")
@@ -820,8 +841,9 @@ test("portal cover: one slab over the portal tangent at depth D, laid in 4m piec
 	for k, m in ipairs(covers) do
 		eq(m.tag, string.format("portal_top_cover_%d_%d", math.floor((k - 1) / 6) + 1, (k - 1) % 6 + 1), "piece tag")
 		near(m.transf[15], -0.3, 1e-6, "cover slab base 30cm below ground")
-		near(m.transf[1], 4, 1e-9, "piece length")
+		near(m.transf[1], 3.6, 1e-9, "piece length")
 	end
+	near(one[1].transf[1], 18, 1e-9, "18m long")
 end)
 
 test("coping: slabs on top of the walls on both sides", function()
@@ -1506,20 +1528,24 @@ test("ground: walls and shoulders run on along the approach to the snap point wi
 	eq(#modelsByTagPrefix(flat, "approach_"), 0, "level ground: no approach walls (the old layout)")
 end)
 
+-- Every cover length's ends (rtr_cover_length): at 6m the lid ends on the
+-- portal, so the lift's check (from the portal to the lid's end) is 0.25m.
 test("ground: steep downhill keeps the lid and the ground under it out of the tunnel", function()
+	for _, C in ipairs({ 6, 18, 24 }) do
 	for _, D in ipairs({ 13, 16, 25 }) do
 		for _, along in ipairs({ -4, -6, -10, -20 }) do
 			for _, across in ipairs({ -10, 0, 10 }) do
-				local r = oneBox(script.updateFn(defaultCap(), defaultParams({ rtr_depth = D, rtr_ground_along = along, rtr_ground_across = across })))
+				local r = oneBox(script.updateFn(defaultCap(), defaultParams({ rtr_depth = D, rtr_ground_along = along, rtr_ground_across = across, rtr_cover_length = C })))
 				local px = portalXOf(r)
 				local function roofAt(x) return roadZ(x, 100, D) + 10.55 end
-				local tag = string.format("D %d along %d across %d", D, along, across)
+				local tag = string.format("cover %d D %d along %d across %d", C, D, along, across)
 				local lid = modelsByTagPrefix(oneBox(r), "portal_top_cover")[1].transf
+				near(lid[1], C, 1e-9, tag .. " lid length")
 				local tilt = lid[7] / lid[6]
-				for _, u in ipairs({ 6 / 36, 1 }) do      -- the portal and the far end
+				for _, u in ipairs({ 6 / C, 1 }) do      -- the portal and the far end
 					for _, y in ipairs({ -11.4, 11.4 }) do
 						local bottom = lid[15] + lid[3] * u + tilt * y
-						local roof = roofAt(px - 6 + 36 * u)
+						local roof = roofAt(px - 6 + C * u)
 						assert(bottom >= roof + 0.15 - 1e-9, tag .. string.format(" lid bottom %.2f under roof %.2f", bottom, roof))
 					end
 				end
@@ -1532,7 +1558,7 @@ test("ground: steep downhill keeps the lid and the ground under it out of the tu
 					local w = ws[#ws].transf
 					near(w[13] + w[1], px, 1e-9, tag .. " last wall ends at the portal")
 					local wallTop = w[15] + w[11] + w[3]
-					local lidBottom = lid[15] + lid[3] * 6 / 36 + tilt * side * 9
+					local lidBottom = lid[15] + lid[3] * 6 / C + tilt * side * 9
 					near(wallTop - lidBottom, 0.6, 1e-9, tag .. " wall top vs lid bottom at the portal")
 				end
 				-- Shoulders meet without a step at the front of the lid area.
@@ -1560,6 +1586,7 @@ test("ground: steep downhill keeps the lid and the ground under it out of the tu
 				end
 			end
 		end
+	end
 	end
 end)
 
@@ -1596,21 +1623,23 @@ test("ground: coping follows the plane along and across", function()
 end)
 
 test("ground: the portal lid lies on the plane", function()
+	for _, C in ipairs({ 6, 13, 18, 24 }) do
 	for _, sc in ipairs(slopeCases) do
-		local r = oneBox(script.updateFn(defaultCap(), defaultParams({ rtr_ground_along = sc.along, rtr_ground_across = sc.across })))
+		local r = oneBox(script.updateFn(defaultCap(), defaultParams({ rtr_ground_along = sc.along, rtr_ground_across = sc.across, rtr_cover_length = C })))
 		local g = expectGround(sc.along, sc.across, 20, 0)
 		local lid = modelsByTagPrefix(oneBox(r), "portal_top_cover")[1].transf
 		local px = portalXOf(r)
 		near(lid[13], px - 6, 1e-9, "lid starts 6m before the portal")
-		near(lid[1], 36, 1e-9, "lid length")
+		near(lid[1], C, 1e-9, "lid length")
 		-- Parallel to the plane; lifted only where downhill ground would
 		-- take it into the tunnel (see the steep downhill test), never on
 		-- uphill or level ground.
 		local lift = lid[15] - (g(px - 6, 0) - 0.3)
 		assert(lift >= -1e-9, "lid never below the plane")
 		if sc.along >= 0 then near(lift, 0, 1e-9, "uphill / cross only: lid on the plane") end
-		near(lid[3], g(px + 30, 0) - g(px - 6, 0), 1e-9, "lid rise follows the plane")
+		near(lid[3], g(px - 6 + C, 0) - g(px - 6, 0), 1e-9, "lid rise follows the plane")
 		near(lid[7] / lid[6], -sc.across / 100, 1e-9, "lid cross tilt")
+	end
 	end
 end)
 
@@ -1645,13 +1674,14 @@ test("ground: shoulder, cover and lid-support faces follow the plane", function(
 end)
 
 test("ground: shoulders widen, run past the lid and keep out of the lid area; lid support skips the trench mouth", function()
-	local r = script.updateFn(defaultCap(), defaultParams({ rtr_ground_along = 5 }))
+	for _, C in ipairs({ 6, 18, 24 }) do
+	local r = script.updateFn(defaultCap(), defaultParams({ rtr_ground_along = 5, rtr_cover_length = C }))
 	local lists = r.subconstructions[1].terrainAlignmentLists
 	local sh = lists[2]
 	eq(sh.slopeLow, 0.45, "gentle fill banks")
 	eq(sh.slopeHigh, 1, "1:1 cut banks")
 	local px = portalXOf(r)
-	local coverA, coverB, lidEdge, floorOuter = px - 6.25, px + 30.25, 9 + 2.4 + 0.25, 9 + 0.4
+	local coverA, coverB, lidEdge, floorOuter = px - 6.25, px - 6 + C + 0.25, 9 + 2.4 + 0.25, 9 + 0.4
 	local maxX, maxY = -math.huge, 0
 	local function bbox(f)
 		local x0, x1, y0, y1 = math.huge, -math.huge, math.huge, -math.huge
@@ -1681,6 +1711,7 @@ test("ground: shoulders widen, run past the lid and keep out of the lid area; li
 	near(maxY, 9 + 7, 1e-9, "shoulders reach outer + 7")
 	for _, f in ipairs(lists[4].faces) do
 		assert(not overlaps(f, coverA, px, -floorOuter, floorOuter), "lid support would fill the trench mouth")
+	end
 	end
 end)
 
@@ -1956,7 +1987,7 @@ local bodyCases = {
 test("median: con offers entry, centre, wall, length, approach, depth, direction, side, curvature and the slopes, nothing else", function()
 	local keys = {}
 	for _, prm in ipairs(medianSpec.params) do keys[#keys + 1] = prm.key end
-	eq(table.concat(keys, " "), "rtr_median_entry rtr_street rtr_wall rtr_length rtr_approach rtr_depth "
+	eq(table.concat(keys, " "), "rtr_median_entry rtr_street rtr_wall rtr_cover_length rtr_length rtr_approach rtr_depth "
 		.. "rtr_direction rtr_side rtr_curvature rtr_ground_along rtr_ground_across", "menu keys")
 	local function pick(prm) return prm.numbers[prm.defaultIndex] end
 	eq(table.concat(medianParam.rtr_median_entry.numbers, ","), "2,4,6", "entries")
@@ -2178,7 +2209,7 @@ test("median: the side streets lie straight at +-Y (coping's edge + half the sid
 						local x0, x1 = math.min(a[1][1], b[1][1]), math.max(a[1][1], b[1][1])
 						near(x0, 0, 1e-9, tag .. ": starts at the trench start")
 						near(x1, g.lidB, 1e-9, tag .. ": ends with the lid")
-						near(x1, g.portalX + 30, 1e-9, tag .. ": the lid's end, 30m past the portal")
+						near(x1, g.portalX + 12, 1e-9, tag .. ": the lid's end, 12m past the portal (18m in all, initially)")
 						assert(x1 < L + 30 - 1e-9, tag .. ": short of the runout's end")
 						near(math.abs(a[2][1]), x1 - x0, 1e-9, tag .. ": tangent as long as the edge")
 						eq(a[1][3], 0, tag .. ": level ground, z 0")
@@ -2236,10 +2267,10 @@ test("median: each side street runs exactly the walls' and the lid's length, wha
 	-- it follows the length (the portal moves with it), not a fixed run
 	assert(lengths[40] < lengths[70] and lengths[70] < lengths[100] and lengths[100] < lengths[400], "longer with the length")
 	-- the slider's ends, written out (initial settings otherwise): the
-	-- portal by the cover search, + 30m of lid
+	-- portal by the cover search, + 12m of lid (18m from 6m in front)
 	for L, len in pairs(lengths) do
 		local g = medianGeo.layout(medianGeo.spec(medianCap, { rtr_length = L }), {}).g
-		near(len, g.portalX + 30, 1e-9, "L " .. L)
+		near(len, g.portalX + 12, 1e-9, "L " .. L)
 	end
 end)
 
@@ -2775,7 +2806,7 @@ do
 		end
 	end)
 
-	test("lidwidth: on level ground and along-only slopes the edges, snap, cost, walls and floor are those of the build before", function()
+	test("lidwidth: on level ground and along-only slopes the edges, snap, cost, walls and floor are those of the build before (1.0.0's 36m cover)", lid36(function()
 		for i, p in ipairs(cases) do
 			for _, sl in ipairs({ { nil, nil }, { 0, 0 }, { 8, 0 }, { -8, 0 } }) do
 				local q = {}
@@ -2808,7 +2839,7 @@ do
 				eq(ncp[1].transf[11], ocp[1].transf[11], tag .. " coping thickness")
 			end
 		end
-	end)
+	end))
 
 	test("lidwidth: the model footprint gets narrower, never wider", function()
 		local function maxY(r)
@@ -2868,7 +2899,7 @@ do
 		end
 	end
 
-	test("geometry: ramp.script returns exactly what it did before the move (7 streets x 1-3 x slope, length, depth, curvature)", function()
+	test("geometry: ramp.script returns exactly what it did before the move (7 streets x 1-3 x slope, length, depth, curvature) (1.0.0's 36m cover)", lid36(function()
 		local cap = defaultCap()
 		local n = 0
 		for st = 1, 7 do
@@ -2887,9 +2918,9 @@ do
 		local old = rampBefore.updateFn(cap, {})
 		sameBits(asBefore(script.updateFn(cap, kept({})), old), old, "empty params")
 		assert(n == 7 * 3 * #variants, "cases run: " .. n)
-	end)
+	end))
 
-	test("geometry: the tunnel fallback through api gives the same result as before", function()
+	test("geometry: the tunnel fallback through api gives the same result as before (1.0.0's 36m cover)", lid36(function()
 		local cap = defaultCap()
 		local savedApi = api
 		local found = {}
@@ -2919,7 +2950,7 @@ do
 		end)
 		api = savedApi
 		assert(ok, err)
-	end)
+	end))
 
 	-- half the y extent of a concrete.mdl piece (the mesh is 0.45m wide)
 	local function halfY(m) return math.abs(m.transf[6]) * 0.225 end
@@ -3430,7 +3461,7 @@ do
 		["7/3"] = "31817:1977434074",
 	}
 
-	test("car only: entries 1-7 build exactly what they built before the cars-only template (whole result digest)", function()
+	test("car only: entries 1-7 build exactly what they built before the cars-only template (whole result digest) (1.0.0's 36m cover)", lid36(function()
 		local cap = defaultCap()
 		local got = {}
 		for i = 1, 7 do
@@ -3448,7 +3479,7 @@ do
 			n = n + 1
 		end
 		eq(n, 21, "cases")
-	end)
+	end))
 
 	test("car only: every edge is the 8m template, each street one unbroken chain from the snapped near end to the runout", function()
 		local cap = defaultCap()
@@ -3581,7 +3612,7 @@ do
 		assert(not ok and tostring(err):find("spec.wall.half", 1, true), "incomplete wall: " .. tostring(err))
 	end)
 
-	test("wall: thick (3.4m) builds exactly what the ramp built before the option (every entry, whole result)", function()
+	test("wall: thick (3.4m) builds exactly what the ramp built before the option (every entry, whole result) (1.0.0's 36m cover)", lid36(function()
 		local cap = defaultCap()
 		local n = 0
 		for st = 1, #cap.streets do
@@ -3598,7 +3629,7 @@ do
 		local g = geometry.layout(geometry.spec(cap, { rtr_wall = 2 }))
 		near(g.copingOut - (g.outer - 1.0), 3.4, 1e-12, "3.4m from the street edge")
 		eq(#tagged(geometry.build(geometry.spec(cap, { rtr_wall = 2 })), "parapet_"), 0, "no parapet")
-	end)
+	end))
 
 	test("wall: thin (1.5m) is the wall on the street edge, a 1.0m wall and a 0.5m top band; the lid, floor and banks follow", function()
 		local cap = defaultCap()
@@ -3930,7 +3961,7 @@ do
 
 	-- ramp_geometry.lua as it stood with the 0 / 1 switch only
 	-- (tests/fixtures/ramp_geometry_before_depotstyle.lua).
-	test("joint: adding hand-over 2 leaves 0, 1, missing and junk below 1.5 as they were", function()
+	test("joint: adding hand-over 2 leaves 0, 1, missing and junk below 1.5 as they were (1.0.0's 36m cover)", lid36(function()
 		local cap = defaultCap()
 		local before = assert(loadfile(root .. "/tests/fixtures/ramp_geometry_before_depotstyle.lua"))()
 		for ci, p in ipairs(CASES) do
@@ -3944,7 +3975,7 @@ do
 					"case " .. ci .. " hand-over " .. tostring(v))
 			end
 		end
-	end)
+	end))
 end
 
 ------------------------------------------------------------------------
@@ -4333,7 +4364,7 @@ do
 		end
 	end)
 
-	test("cover pieces: the cover in 4m pieces along and W / round(W / 4) across, edge to edge, as long, as wide and as high as the one slab", function()
+	test("cover pieces: the cover in 4m pieces along and W / round(W / 4) across, edge to edge, as long, as wide and as high as the one slab (1.0.0's 36m cover)", lid36(function()
 		local widths = {}
 		for ci, p in ipairs(CASES) do
 			for _, b in ipairs(builds(p)) do
@@ -4404,9 +4435,9 @@ do
 		-- the cases cover narrow and wide covers
 		table.sort(widths)
 		assert(widths[1] < 22 and widths[#widths] > 40, "cover widths " .. widths[1] .. ".." .. widths[#widths])
-	end)
+	end))
 
-	test("cover pieces: one piece across is the one slab (y 0, the full width) bit for bit, and the split adds up to it", function()
+	test("cover pieces: one piece across is the one slab (y 0, the full width) bit for bit, and the split adds up to it (1.0.0's 36m cover)", lid36(function()
 		-- a cover under 6m wide is one piece: the y position 0 and the
 		-- width roofHalf * 2 exactly, as the one slab had (the frozen-build
 		-- comparisons hold the slab to the earlier builds)
@@ -4435,7 +4466,7 @@ do
 		local whole = modelsByTagPrefix(oneBox(r1), "portal_top_cover")[1].transf
 		for k = 1, 16 do near(merged[k], whole[k], 1e-9 * math.max(1, math.abs(whole[k])), "transf[" .. k .. "]") end
 		eq(#pieces, 9 * nA, "split")
-	end)
+	end))
 
 	test("cover pieces: pieces() splits a run into equal pieces ending on its end", function()
 		local function check(x0, x1, len, wantN)
@@ -4454,7 +4485,7 @@ do
 		check(0, 4.0000001, 4, 2)
 	end)
 
-	test("stack: the number of pieces stays bounded (walls and cover, ramp and median)", function()
+	test("stack: the number of pieces stays bounded (walls and cover, ramp and median) (1.0.0's 36m cover)", lid36(function()
 		-- 2026-11-24 the default ramp went from 65 to 83 models (wall
 		-- stacks, the cover in 4m pieces along), then to 128 (the 22.8m
 		-- cover also in 6 pieces across: 9 x 6 for 9). The walls and the rest at most
@@ -4495,7 +4526,7 @@ do
 				end
 			end
 		end
-	end)
+	end))
 
 	test("assets: the borrowed wall files are gone; the wall models use the mod's own box", function()
 		-- concrete.mdl stays by name on the mod's box (the old-saves test above)
@@ -4517,6 +4548,397 @@ do
 			local body = f:read("*a"); f:close()
 			assert(not body:find("walls/concrete.mdl", 1, true), rel .. " names walls/concrete.mdl")
 			assert(not body:find("wall.msh", 1, true), rel .. " names wall.msh")
+		end
+	end)
+end
+
+------------------------------------------------------------------------
+-- Portal cover length (rtr_cover_length, 2026-11-26): the cover's whole
+-- length, 6-24m in 1m steps, 18 initially, from 6m in front of the portal
+-- (lidA) as before; 1.0.0's 36m is not offered. A mod.io comment asked why
+-- a road needs that huge slab; the user: 「しかし、現在は確かに長過ぎる気が
+-- します」「30とかそもそもいらないので、6-18ぐらいをスライダーにするとかは？」
+-- 「全体の長さにしてください」.
+------------------------------------------------------------------------
+do
+	local rampSpec = loadData("/content/road_tunnel_ramp/ramp.con.lua")
+	local LENGTHS = { 6, 7, 12, 18, 23, 24 }
+
+	test("cover length: both menus offer rtr_cover_length 6-24m in 1m steps after the wall, 18m initially", function()
+		for _, spec in ipairs({ rampSpec, medianSpec }) do
+			local keys, prm = {}, nil
+			for i, q in ipairs(spec.params) do
+				keys[#keys + 1] = q.key
+				if q.key == "rtr_cover_length" then
+					prm = q
+					eq(spec.params[i - 1].key, "rtr_wall", "right after the wall")
+				end
+			end
+			assert(prm, "rtr_cover_length in " .. table.concat(keys, " "))
+			eq(prm.uiType, "Slider", "a slider, as rtr_length")
+			eq(prm.name, "rtr_cover_length_name", "name key")
+			eq(prm.tooltip, "rtr_cover_length_tooltip", "tooltip key")
+			eq(#prm.numbers, 19, "19 values")
+			for i, n in ipairs(prm.numbers) do
+				eq(n, 5 + i, "numbers")
+				eq(prm.values[i], (5 + i) .. "m", "labels")
+			end
+			eq(prm.numbers[prm.defaultIndex], 18, "18m initially")
+			eq(prm.numbers[prm.defaultIndex], rampGeo.LID_DEFAULT, "the same as the script's")
+			eq(prm.numbers[1], rampGeo.LID_MIN, "min")
+			eq(prm.numbers[#prm.numbers], rampGeo.LID_MAX, "max")
+		end
+	end)
+
+	test("cover length: missing, junk and out of range read as 18m; in range to the whole metre", function()
+		for _, v in ipairs({ "nil", "abc", 0 / 0, 0, -6, 5, 5.99, 24.01, 25, 30, 36, 1e9, math.huge, -math.huge, true }) do
+			local p = {}
+			if v ~= "nil" then p.rtr_cover_length = v end
+			eq(rampGeo.lidLengthOf(p), 18, "value " .. tostring(v))
+			eq(rampGeo.spec(defaultCap(), p).lidLength, 18, "spec, value " .. tostring(v))
+			eq(medianGeo.spec(medianCap, p).lidLength, 18, "median spec, value " .. tostring(v))
+		end
+		eq(rampGeo.lidLengthOf(nil), 18, "no params")
+		for _, c in ipairs({ { 6, 6 }, { 24, 24 }, { 13, 13 }, { "12", 12 }, { 12.4, 12 }, { 12.5, 13 }, { 6.2, 6 }, { 23.6, 24 } }) do
+			eq(rampGeo.lidLengthOf({ rtr_cover_length = c[1] }), c[2], "value " .. tostring(c[1]))
+		end
+		-- and the whole build: nil and out of range build the 18m ramp and median
+		local ref = script.updateFn(defaultCap(), defaultParams({ rtr_cover_length = 18 }))
+		local mref = median.updateFn(medianCap, { rtr_cover_length = 18 })
+		for _, v in ipairs({ "nil", 0, 5, 25, 36, "abc" }) do
+			local p = defaultParams()
+			local q = {}
+			if v ~= "nil" then p.rtr_cover_length = v; q.rtr_cover_length = v end
+			deepEq(script.updateFn(defaultCap(), p), ref, "ramp " .. tostring(v))
+			deepEq(median.updateFn(medianCap, q), mref, "median " .. tostring(v))
+		end
+		-- layout refuses a lid that would end before the portal
+		local sp = rampGeo.spec(defaultCap(), {})
+		sp.lidLength = 5.9
+		assert(not pcall(rampGeo.layout, sp), "lidLength under 6 refused")
+		sp.lidLength = "18"
+		assert(not pcall(rampGeo.layout, sp), "a string refused")
+		sp.lidLength = nil
+		eq(rampGeo.layout(sp).lidLength, 18, "a spec without it: 18")
+	end)
+
+	-- The ramp's cases: level, uphill, cross, a downhill the ramp gets under,
+	-- one too steep (the lid lifted), short and deep, three wide streets.
+	local RAMP_CASES = {
+		{}, { rtr_ground_along = 8, rtr_ground_across = 5 }, { rtr_ground_along = -3, rtr_ground_across = -7 },
+		{ rtr_ground_along = -10, rtr_ground_across = 10, rtr_depth = 13 }, { rtr_length = 40, rtr_depth = 25 },
+		{ rtr_street = 7, rtr_count = 3, rtr_wall = 1 },
+	}
+	local function lists(r) return r.subconstructions[1].terrainAlignmentLists end
+	local function xRange(faces)
+		local lo, hi = math.huge, -math.huge
+		for _, f in ipairs(faces) do
+			for _, v in ipairs(f) do lo, hi = math.min(lo, v[1]), math.max(hi, v[1]) end
+		end
+		return lo, hi
+	end
+
+	test("cover length: the lid, its terrain faces and the banks past it end at lidA + length; the start stays 6m before the portal", function()
+		for _, C in ipairs(LENGTHS) do
+			for ci, base in ipairs(RAMP_CASES) do
+				local p = defaultParams(base)
+				p.rtr_cover_length = C
+				local tag = string.format("cover %d case %d", C, ci)
+				local r, g = rampGeo.build(rampGeo.spec(defaultCap(), p))
+				deepEq(script.updateFn(defaultCap(), p), r, tag .. ": the script builds the module's result")
+				local px = portalXOf(r)
+				eq(g.portalX, px, tag .. ": portal")
+				eq(g.lidLength, C, tag .. ": lidLength")
+				eq(g.lidA, px - 6, tag .. ": lidA 6m before the portal")
+				near(g.lidB - g.lidA, C, 1e-9, tag .. ": lidB = lidA + length")
+				eq(g.coverA, px - 6.25, tag .. ": coverA")
+				near(g.coverB, g.lidB + 0.25, 1e-9, tag .. ": coverB 0.25m past the lid")
+				if C == 6 then eq(g.lidB, px, tag .. ": 6m ends on the portal") end
+				-- the slab: pieces of at most 4m from lidA to lidB
+				local pieces = modelsByTagPrefix(r, "portal_top_cover_")
+				local nA = rampGeo.coverAcross(g.roofHalf * 2)
+				local nL = math.ceil(C / 4 - 1e-9)
+				eq(#pieces, nL * nA, tag .. ": " .. nL .. " pieces along")
+				for _, m in ipairs(pieces) do
+					assert(m.transf[1] <= 4 + 1e-9, tag .. ": a piece at most 4m")
+				end
+				local lid = modelsByTagPrefix(oneBox(r), "portal_top_cover")[1].transf
+				eq(lid[13], g.lidA, tag .. ": the slab from lidA")
+				near(lid[13] + lid[1], g.lidB, 1e-9, tag .. ": the slab to lidB")
+				-- terrain: LESS under the cover, GREATER lid support, both to coverB
+				local tl = lists(r)
+				local lo, hi = xRange(tl[3].faces)
+				near(lo, g.coverA, 1e-9, tag .. ": cover face from coverA")
+				near(hi, g.coverB, 1e-9, tag .. ": cover face to coverB")
+				lo, hi = xRange(tl[4].faces)
+				near(lo, g.coverA, 1e-9, tag .. ": lid support from coverA")
+				near(hi, g.coverB, 1e-9, tag .. ": lid support to coverB")
+				-- the lid support's part past the portal: portalX .. coverB, never inside out
+				local past = tl[4].faces[1]
+				near(past[1][1], px, 1e-9, tag .. ": support past the portal from the portal")
+				assert(past[2][1] > past[1][1], tag .. ": support past the portal runs forward")
+				-- the banks: beside the lid to coverB, then the end face past it
+				local sh = tl[2].faces
+				local endFace = sh[#sh]
+				near(math.min(endFace[1][1], endFace[2][1]), g.coverB, 1e-9, tag .. ": end bank from coverB")
+				near(math.max(endFace[1][1], endFace[2][1]), g.coverB + (g.shoulderOut - g.lidEdge), 1e-9, tag .. ": end bank's far edge")
+				lo, hi = xRange({ sh[#sh - 1] })
+				near(hi, g.coverB, 1e-9, tag .. ": the bank beside the lid to coverB")
+				-- nothing of the lid's past the stub's end, and the stub unchanged
+				assert(g.lidB < g.runoutEnd, tag .. ": lid ends short of the stub's end")
+				eq(g.runoutEnd, g.L + 30, tag .. ": the stub 30m")
+			end
+		end
+	end)
+
+	-- The walls, coping and banks rise to the lid's lift on downhill ground
+	-- too steep for the ramp (an embankment), and the lift is found under
+	-- the lid's run, so there they follow the length; elsewhere (no lift)
+	-- they stay as they are.
+	test("cover length: the edges, the stub, the floor and the cost do not depend on it; the walls and coping only through the lift", function()
+		local lifted = 0
+		for ci, base in ipairs(RAMP_CASES) do
+			local ref, gRef = rampGeo.build(rampGeo.spec(defaultCap(), defaultParams(with(base, { rtr_cover_length = 18 }))))
+			for _, C in ipairs(LENGTHS) do
+				local tag = string.format("cover %d case %d", C, ci)
+				local r, g = rampGeo.build(rampGeo.spec(defaultCap(), defaultParams(with(base, { rtr_cover_length = C }))))
+				deepEq(r.edgeLists, ref.edgeLists, tag .. ": edges")
+				deepEq(r.snapPoint, ref.snapPoint, tag .. ": snap")
+				eq(r.cost, ref.cost, tag .. ": cost")
+				eq(g.portalX, gRef.portalX, tag .. ": portal")
+				deepEq(lists(r)[1], lists(ref)[1], tag .. ": floor")
+				if g.lift == gRef.lift then
+					for _, prefix in ipairs({ "wall_", "coping_", "parapet_", "approach_" }) do
+						deepEq(modelsByTagPrefix(r, prefix), modelsByTagPrefix(ref, prefix), tag .. ": " .. prefix)
+					end
+				else
+					lifted = lifted + 1
+					assert(gRef.lift > 0 or g.lift > 0, tag .. ": differs only when lifted")
+				end
+			end
+		end
+		assert(lifted > 0, "a lifted case among them")
+	end)
+
+	test("cover length: the lift only looks under the lid, so a shorter lid is lifted no more; at 6m it stays finite and over the plane", function()
+		for _, base in ipairs(RAMP_CASES) do
+			local prev = -1
+			for _, C in ipairs({ 6, 12, 18, 24 }) do
+				local s = rampGeo.spec(defaultCap(), defaultParams(with(base, { rtr_cover_length = C })))
+				local g = rampGeo.layout(s)
+				assert(g.lift == g.lift and g.lift < math.huge, "finite lift")
+				assert(g.lift >= 0, "never lowered")
+				assert(g.lift >= prev - 1e-12, string.format("lift grows with the length: %g after %g", g.lift, prev))
+				prev = g.lift
+			end
+			local s = rampGeo.spec(defaultCap(), defaultParams(base))
+			s.lidLength = 36
+			assert(rampGeo.layout(s).lift >= prev - 1e-12, "36m lifted at least as much as 24m")
+		end
+	end)
+
+	test("cover length: 36 passed to the module lays 1.0.0's lid (portalX - 6 .. portalX + 30, faces to + 30.25) to the bit", function()
+		for ci, base in ipairs(RAMP_CASES) do
+			local s = rampGeo.spec(defaultCap(), defaultParams(base))
+			s.lidLength = 36
+			local g = rampGeo.layout(s)
+			eq(g.lidA, g.portalX - 6, "case " .. ci .. ": lidA")
+			eq(g.lidB, g.portalX + 30, "case " .. ci .. ": lidB")
+			eq(g.coverB, g.portalX + 30.25, "case " .. ci .. ": coverB")
+		end
+	end)
+
+	test("median: the side streets end with the lid and their ground cuts at its terrain end, for every cover length", function()
+		for _, C in ipairs(LENGTHS) do
+			for ci, base in ipairs({ {}, { rtr_ground_along = 6, rtr_ground_across = -4 }, { rtr_ground_along = -12, rtr_ground_across = 5, rtr_length = 60 },
+				{ rtr_median_entry = 6, rtr_wall = 2 }, { rtr_ground_along = -20, rtr_ground_across = -20 } }) do
+				local p = with(base, { rtr_cover_length = C })
+				local tag = string.format("cover %d case %d", C, ci)
+				local r = median.updateFn(medianCap, p)
+				local lay = medianGeo.layout(medianGeo.spec(medianCap, p), p)
+				local g = lay.g
+				eq(g.lidLength, C, tag .. ": lidLength")
+				near(g.lidB, g.portalX - 6 + C, 1e-9, tag .. ": lidB")
+				local wx0, wx1 = wallsAndLid(r)
+				near(wx1, g.lidB, 1e-9, tag .. ": the lid's end")
+				local _, sides, ground = splitSides(r)
+				for _, ySign in ipairs({ -1, 1 }) do
+					local lo, hi = sideRun(sides, ySign)
+					near(lo, 0, 1e-9, tag .. ": from the trench start")
+					eq(lo, wx0, tag .. ": with the walls")
+					near(hi, g.lidB, 1e-9, tag .. ": to the lid's end, side " .. ySign)
+				end
+				-- the side streets' ground: up to the lid's end, from the
+				-- lid's terrain edge beside the cover, from the coping's
+				-- outside it (coverB in the run unless the run ends first)
+				local lo, hi = xRange(ground.faces)
+				near(lo, 0, 1e-9, tag .. ": ground from the trench start")
+				near(hi, g.lidB, 1e-9, tag .. ": ground to the lid's end")
+				for _, f in ipairs(ground.faces) do
+					local xm = (f[1][1] + f[2][1]) * 0.5
+					local inner = math.min(math.abs(f[1][2]), math.abs(f[3][2]))
+					local want = (xm > g.coverA and xm < g.coverB) and g.lidEdge or g.copingOut
+					near(inner, want, 1e-9, tag .. ": inner edge at x " .. xm)
+				end
+				-- the body is the full-width ramp's body for the same length
+				local s = medianGeo.spec(medianCap, p)
+				local body = rampGeo.build(s)
+				deepEq(lists(body)[3], lists(r)[3], tag .. ": the cover face is the body's")
+			end
+		end
+	end)
+end
+
+------------------------------------------------------------------------
+-- The mod setting Initial portal cover length (mod.json params
+-- rtr_cover_length_default; the user, 2026-11-26: 「1.1.0にMODの設定を入れて
+-- OKです」): the slider's starting value in both constructions, set by
+-- mod.script.lua's loadConstruction modifier; placed ramps keep theirs.
+------------------------------------------------------------------------
+do
+	local setting = require "road_tunnel_ramp::/road_tunnel_ramp/cover_setting.lua"
+	local rampConData = loadData("/content/road_tunnel_ramp/ramp.con.lua")
+
+	test("mod setting: the mod param (1-based position in 6m..24m) to a length; missing, junk and out of range are 18m", function()
+		for i = 1, 19 do eq(setting.lengthFromModParam(i), 5 + i, "position " .. i) end
+		eq(setting.lengthFromModParam("1"), 6, "a numeric string")
+		eq(setting.lengthFromModParam(13), 18, "the mod.json default (defaultIndex 12) arrives as 13")
+		for _, v in ipairs({ "nil", 0, -1, 20, 100, 1.5, 12.9, 0 / 0, math.huge, "abc", true }) do
+			eq(setting.lengthFromModParam(v ~= "nil" and v or nil), 18, "value " .. tostring(v))
+		end
+	end)
+
+	test("mod setting: lengths to mod.json's 0-based and a .con's 1-based defaultIndex", function()
+		for _, c in ipairs({ { 6, 0, 1 }, { 7, 1, 2 }, { 18, 12, 13 }, { 23, 17, 18 }, { 24, 18, 19 } }) do
+			eq(setting.modDefaultIndex(c[1]), c[2], "mod.json index of " .. c[1])
+			eq(setting.conDefaultIndex(c[1]), c[3], ".con index of " .. c[1])
+		end
+		-- the .con's own: numbers[defaultIndex] is the length (1-based)
+		for _, spec in ipairs({ rampConData, medianSpec }) do
+			for _, q in ipairs(spec.params) do
+				if q.key == "rtr_cover_length" then
+					for len = 6, 24 do eq(q.numbers[setting.conDefaultIndex(len)], len, "numbers at " .. len) end
+					eq(q.defaultIndex, setting.conDefaultIndex(18), "the file's own default is 18m")
+				end
+			end
+		end
+		-- round trip: mod.json's default index, as the game hands it (+ 1)
+		for len = 6, 24 do eq(setting.lengthFromModParam(setting.modDefaultIndex(len) + 1), len, "round trip " .. len) end
+	end)
+
+	test("mod setting: this mod's params from runFn's 2nd or 3rd argument, by modId or folder name", function()
+		eq(setting.modParamsFrom(nil, { road_tunnel_ramp = { a = 1 } }).a, 1, "3rd")
+		eq(setting.modParamsFrom({ road_tunnel_ramp = { a = 2 } }, nil).a, 2, "2nd")
+		eq(setting.modParamsFrom({ road_tunnel_ramp_1 = { a = 3 } }).a, 3, "folder name")
+		eq(next(setting.modParamsFrom(nil, nil, "x", 5)), nil, "nothing: empty")
+		eq(next(setting.modParamsFrom({ other = { a = 1 } })), nil, "another mod's only")
+	end)
+
+	test("mod setting: the file names it applies to", function()
+		for _, n in ipairs({ "road_tunnel_ramp/ramp.con", "road_tunnel_ramp/ramp.con.lua",
+			"road_tunnel_ramp::/road_tunnel_ramp/ramp.con", "/x/res/construction/road_tunnel_ramp/ramp.con",
+			"road_tunnel_ramp::road_tunnel_ramp/median.con" }) do
+			assert(setting.conOf(n), n)
+		end
+		eq(setting.conOf("road_tunnel_ramp/median.con.lua"), "median", "median")
+		for _, n in ipairs({ "road_tunnel_ramp/ramp.con.bak", "my_road_tunnel_ramp/ramp.con",
+			"road_tunnel_ramp/other.con", "road_tunnel_ramp/ramp.script.lua", "ramp.con",
+			"station/rail/road_tunnel_ramp_x/ramp.con", "" }) do
+			eq(setting.conOf(n), nil, n)
+		end
+		eq(setting.conOf(nil), nil, "nil")
+		eq(setting.conOf(5), nil, "a number")
+	end)
+
+	test("mod setting: the modifier moves only the cover slider's defaultIndex in both constructions", function()
+		for _, file in ipairs({ "ramp", "median" }) do
+			for _, len in ipairs({ 6, 7, 18, 24 }) do
+				local d = loadData("/content/road_tunnel_ramp/" .. file .. ".con.lua")
+				local before = loadData("/content/road_tunnel_ramp/" .. file .. ".con.lua")
+				local out = setting.modifier(len)("road_tunnel_ramp/" .. file .. ".con", d)
+				local tag = file .. " " .. len
+				assert(out == d, tag .. ": the same table back")
+				local cover
+				for i, q in ipairs(out.params) do
+					if q.key == "rtr_cover_length" then
+						cover = q
+						eq(q.numbers[q.defaultIndex], len, tag .. ": starts on the length")
+						eq(q.defaultIndex, setting.conDefaultIndex(len), tag .. ": 1-based")
+						before.params[i].defaultIndex = q.defaultIndex
+					end
+				end
+				assert(cover, tag .. ": the slider")
+				deepEq(out, before, tag .. ": nothing else changed")
+			end
+		end
+		-- other files: untouched
+		local other = { params = { { key = "rtr_cover_length", numbers = { 6, 18 }, defaultIndex = 2 } } }
+		eq(setting.modifier(6)("street/other.con", other), other, "other: same table")
+		eq(other.params[1].defaultIndex, 2, "other: untouched")
+		-- odd data: nothing raises
+		for _, d in ipairs({ {}, { params = 5 }, { params = { 5, { key = "rtr_cover_length" } } } }) do
+			setting.modifier(6)("road_tunnel_ramp/ramp.con", d)
+		end
+		eq(setting.modifier(6)("road_tunnel_ramp/ramp.con", nil), nil, "nil data passes through")
+		-- a length the slider lacks leaves it
+		local d = loadData("/content/road_tunnel_ramp/ramp.con.lua")
+		eq(setting.applyToCon(d, 36), false, "36 is not on the slider")
+	end)
+
+	test("mod setting: mod.script runFn adds one loadConstruction modifier from the mod params; a failing addModifier is logged, not raised", function()
+		local saved = { data = data, addModifier = addModifier, print = print }
+		local function run(second, third, add)
+			data = false
+			assert(loadfile(root .. "/content/mod.script.lua"))()
+			local fns = data()
+			data = saved.data
+			addModifier = add
+			local ok, err = pcall(fns.runFn, {}, second, third)
+			addModifier = saved.addModifier
+			return ok, err, fns
+		end
+		for _, c in ipairs({ { nil, 18 }, { 1, 6 }, { 13, 18 }, { 19, 24 }, { 20, 18 }, { "abc", 18 } }) do
+			local got = {}
+			local ok, err = run({}, { road_tunnel_ramp = { rtr_cover_length_default = c[1] } },
+				function(kind, fn) got[#got + 1] = { kind, fn } end)
+			assert(ok, tostring(err))
+			eq(#got, 1, "one modifier")
+			eq(got[1][1], "loadConstruction", "kind")
+			local d = loadData("/content/road_tunnel_ramp/median.con.lua")
+			d = got[1][2]("road_tunnel_ramp::/road_tunnel_ramp/median.con", d)
+			for _, q in ipairs(d.params) do
+				if q.key == "rtr_cover_length" then eq(q.numbers[q.defaultIndex], c[2], "param " .. tostring(c[1])) end
+			end
+		end
+		local lines = {}
+		print = function(m) lines[#lines + 1] = m end
+		local ok = run(nil, nil, function() error("no such kind") end)
+		print = saved.print
+		assert(ok, "runFn does not raise")
+		eq(#lines, 1, "one line logged")
+		assert(lines[1]:find("addModifier failed", 1, true), lines[1])
+		-- quiet when it works
+		lines = {}
+		print = function(m) lines[#lines + 1] = m end
+		run(nil, nil, function() end)
+		print = saved.print
+		eq(#lines, 0, "nothing logged")
+	end)
+
+	test("mod setting: a placed ramp keeps its length: the scripts build from their own params and never read the setting", function()
+		for _, rel in ipairs({ "ramp_geometry.lua", "median_geometry.lua", "ramp.script.lua", "median.script.lua" }) do
+			local f = assert(io.open(root .. "/content/road_tunnel_ramp/" .. rel))
+			local body = f:read("*a"); f:close()
+			assert(not body:find("rtr_cover_length_default", 1, true), rel .. " reads the mod setting")
+			assert(not body:find("cover_setting", 1, true), rel .. " requires cover_setting")
+		end
+		-- the same params, whatever the slider started on: the same build
+		local p = defaultParams({ rtr_cover_length = 9 })
+		local a = script.updateFn(defaultCap(), p)
+		for _, len in ipairs({ 6, 24 }) do
+			local d = loadData("/content/road_tunnel_ramp/ramp.con.lua")
+			setting.applyToCon(d, len)
+			deepEq(script.updateFn(d.updateScript.params, p), a, "slider starting on " .. len)
 		end
 	end)
 end

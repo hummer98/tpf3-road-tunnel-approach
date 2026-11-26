@@ -138,9 +138,10 @@ end
 -- the entry, its side template, Y, the side streets' run (x0 .. x1) and
 -- whether each runs toward the tunnel.
 -- The run is the walls' and the lid's together, from the trench start
--- (x = 0, where the walls start) to the lid's far end (lidB = portalX +
--- 30), so it follows the length, the depth, the curvature, the slopes and
--- the centre and wall (they move the portal) by itself (the user,
+-- (x = 0, where the walls start) to the lid's far end (lidB = portalX - 6
+-- + lidLength, rtr_cover_length), so it follows the length, the depth, the
+-- curvature, the slopes, the cover length and the centre and wall (they
+-- move the portal) by itself (the user,
 -- 2026-11-24: 「側道の長さは、擁壁部＋蓋と同じ長さに自動的に調整される
 -- ようにしてください」). Not from the snap point: the approach in front is
 -- where the player lays the fork. Not on along the runout: it is
@@ -172,7 +173,7 @@ end
 -- lid on downhill ground too steep for the ramp, out to the faces' end past
 -- the lid; the plane beyond.
 local function bankZ(g, x, y)
-	local coverA, coverB = g.portalX - 6.25, g.portalX + 30.25
+	local coverA, coverB = g.coverA, g.coverB
 	local coverEnd = coverB + (g.shoulderOut - g.lidEdge)
 	if x > coverEnd then return g.ground(x, y) end
 	local z = g.surface(x, y)
@@ -231,7 +232,7 @@ local function sideGround(lay, g, ySign, xs, zs, n)
 	-- met the cover's LESS one 0.55m lower; review, 2026-11-24). The street's
 	-- inner 0.25m then lies over the cover's cut there [guess: unseen from
 	-- above; e2e pictures].
-	local coverA, coverB = g.portalX - 6.25, g.portalX + 30.25
+	local coverA, coverB = g.coverA, g.coverB
 	local cuts = {}
 	for i = 0, n do cuts[#cuts + 1] = { x = xs[i], z = zs[i] } end
 	for _, xc in ipairs({ coverA, coverB }) do

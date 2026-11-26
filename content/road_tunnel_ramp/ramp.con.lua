@@ -23,6 +23,7 @@ local lengthValues, lengthNumbers = metres(40, 100, 2)
 local approachValues, approachNumbers = metres(2, 50, 2)
 local depthValues, depthNumbers = metres(13, 25, 1)
 local gradeValues, gradeNumbers = percents(-20, 20)
+local coverValues, coverNumbers = metres(6, 24, 1)
 return {
 	autoRemovable = false,
 	availability = { yearFrom = 0, yearTo = 0 },
@@ -130,6 +131,21 @@ return {
 			values = { _("rtr_wall_thin"), _("rtr_wall_thick") },
 			numbers = { 1, 2 },
 			defaultIndex = 1,
+		},
+		{
+			-- The portal cover's whole length, 6-24m in 1m steps, from 6m
+			-- in front of the portal (ramp_geometry.lua LID_*). It was 36m
+			-- in 1.0.0 (a mod.io comment: why so huge a slab for a road);
+			-- some lid stays, as the ground just past the portal is shallow
+			-- and town buildings may meet the tunnel there (the user,
+			-- 2026-11-26: 「全体の長さにしてください」).
+			key = "rtr_cover_length",
+			name = _("rtr_cover_length_name"),
+			tooltip = _("rtr_cover_length_tooltip"),
+			uiType = "Slider",
+			values = coverValues,
+			numbers = coverNumbers,
+			defaultIndex = 13,  -- 18m
 		},
 		{
 			-- Only one-way (highway) templates care: which way traffic

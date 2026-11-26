@@ -18,7 +18,8 @@
 -- M.layout(spec)  the dimensions (and the height functions) of the body
 -- M.build(spec)   the construction result, and the layout it used
 -- A spec: street = { ref, width, oneWay }, count, L, D, curvature,
--- direction, side, approach, gx, gy, wall (one of M.WALLS), tunnelRef,
+-- direction, side, approach, gx, gy, wall (one of M.WALLS), lidLength (the
+-- portal cover's whole length; nil counts as M.LID_DEFAULT), tunnelRef,
 -- tunnelHeight, handOver (nil counts as true), approachDepotStyle (read
 -- only when handOver is false; nil counts as false). A construction building on
 -- this module starts from M.spec(cap, p) and replaces street and count,
@@ -84,7 +85,7 @@ M.WALL_MODELS = {
 -- with it (5.3 times from a 3m to a 16m wall), so a wall piece of height H is a stack of stackCount(H) boxes of
 -- H / n each, n = max(1, round(H / WALL_STACK)): a box of a wall 4.5m or
 -- higher is 4.5..9m high, 0.75..1.5 times the 6m it was baked for (the
--- mesh's maker, 2026-11-24). The portal cover, 36m long, is
+-- mesh's maker, 2026-11-24). The portal cover, 6-24m long (lidLength), is
 -- laid in pieces of at most COVER_PIECE for the same reason (as one piece
 -- its top was stretched about 9 times along x), and across its width
 -- (19-59m, up to about 107m for three Large Streets) in coverAcross(W)
@@ -114,12 +115,39 @@ function M.pieces(x0, x1, len)
 	return xs, n
 end
 
+-- The portal cover's whole length (rtr_cover_length). It starts
+-- LID_BEHIND (6m) in front of the portal as before (lidA) and ends
+-- lidLength after that (lidB), so at 6m it ends on the portal. In 1.0.0 it
+-- was 36m (30m past the portal), and a player asked on mod.io why a road
+-- needs that huge slab. The user kept a lid, since the ground just past
+-- the portal may be shallow enough to meet buildings, and found 36m too
+-- long: 「地下に入った直後のエリアは道路の傾斜によりますが、地上の建物と干渉
+-- する可能性があるので、ある程度の蓋、というかガード部が必要だと思われます。
+-- しかし、現在は確かに長過ぎる気がします」, then 「30とかそもそもいらないので、
+-- 6-18ぐらいをスライダーにするとかは？」 and 「全体の長さにしてください」.
+-- So a 1m slider of the whole length, 6 to 24, 18 initially. M.layout
+-- takes any length from LID_BEHIND on (36 gives 1.0.0's body); only the
+-- menu is held to the slider's range.
+M.LID_MIN, M.LID_MAX, M.LID_DEFAULT = 6, 24, 18
+M.LID_BEHIND = 6
+
 function M.value(p, key, default, lo, hi)
 	local n = tonumber(p[key])
 	if not n or n ~= n then n = default end
 	return math.max(lo, math.min(hi, n))
 end
 local value = M.value
+
+-- rtr_cover_length, read for the spec: a whole metre in the slider's range;
+-- missing, junk or out of range (a value the menu cannot give) is the
+-- initial 18m, not the nearest end, so nothing quietly keeps 1.0.0's 36m.
+function M.lidLengthOf(p)
+	local n = tonumber(p and p.rtr_cover_length)
+	if not n or n ~= n or n < M.LID_MIN or n > M.LID_MAX then
+		return M.LID_DEFAULT
+	end
+	return math.floor(n + 0.5)
+end
 
 function M.spec(cap, p)
 	-- rtr_street picks one of the street templates captured by
@@ -158,6 +186,7 @@ function M.spec(cap, p)
 		-- pass rtr_wall = 1 to get the thin one (median_geometry.spec
 		-- does, when its own menu's value is missing).
 		wall = M.WALLS[math.floor(value(p, "rtr_wall", M.WALL_THICK, 1, #M.WALLS) + 0.5)],
+		lidLength = M.lidLengthOf(p),
 		-- Ground plane (see ground in M.layout): along = % rise toward
 		-- the tunnel, across = % rise to the right when facing it, so
 		-- gy (rise toward local +Y, the left) takes the opposite sign.
@@ -178,7 +207,9 @@ end
 -- Everything the edges, models and terrain are laid out from. Side streets
 -- beside the body need: outer (wall centreline), copingOut (outer edge of
 -- the coping and of the lid), portalX (the portal), lidA / lidB (the lid's
--- run along x), runoutEnd (x of the underground runout's end, at z = -D),
+-- run along x, lidB = lidA + lidLength), coverA / coverB (the lid's
+-- terrain faces' run, 0.25m past each end), runoutEnd (x of the
+-- underground runout's end, at z = -D),
 -- and the height functions (ground, roadZ, lidZ, surface).
 function M.layout(s)
 	for _, k in ipairs({ "L", "D", "count", "approach", "gx", "gy", "curvature", "direction", "side", "tunnelHeight" }) do
@@ -195,6 +226,14 @@ function M.layout(s)
 	local L, D, count, approach = s.L, s.D, s.count, s.approach
 	local gx, gy = s.gx, s.gy
 	local tunnelHeight = s.tunnelHeight
+	local lidLength = s.lidLength
+	if lidLength == nil then lidLength = M.LID_DEFAULT end
+	-- (from LID_BEHIND on: a shorter lid would end before the portal, and
+	-- the lid support from the portal on would turn inside out)
+	assert(type(lidLength) == "number" and lidLength >= M.LID_BEHIND,
+		"ramp_geometry: spec.lidLength must be a number of at least " .. M.LID_BEHIND)
+	-- The tunnel stub past the descent's foot (x = L .. L + 30), not the
+	-- lid: it stays 30m whatever lidLength is.
 	local runout = 30
 	local halfWidth = street.width * 0.5
 	-- Parallel streets: centre-to-centre pitch is the template
@@ -355,7 +394,11 @@ function M.layout(s)
 	-- ramp up to it from the trench start, an embankment instead of
 	-- a lid floating over the walls.
 	local roofHalf = copingOut
-	local lidA, lidB = portalX - 6, portalX + 30
+	-- lidB = lidA + lidLength, written from the portal as 1.0.0's
+	-- portalX + 30 and portalX + 30.25 were, so 36 gives them to the bit
+	local ahead = lidLength - M.LID_BEHIND
+	local lidA, lidB = portalX - M.LID_BEHIND, portalX + ahead
+	local coverA, coverB = portalX - 6.25, portalX + (ahead + 0.25)
 	local lidClear = math.min(cover, tunnelHeight + 0.6) - 0.01
 	local lift = 0
 	for k = 0, 10 do
@@ -391,6 +434,7 @@ function M.layout(s)
 	g.outer, g.copingOut, g.roofHalf, g.lidEdge = outer, copingOut, roofHalf, lidEdge
 	g.cover, g.portal, g.portalX = cover, portal, portalX
 	g.lidA, g.lidB, g.lift = lidA, lidB, lift
+	g.lidLength, g.coverA, g.coverB = lidLength, coverA, coverB
 	g.floorOuter, g.shoulderOut = floorOuter, shoulderOut
 	g.wall, g.shoulderIn = w, outer + w.shoulderIn
 	g.ground, g.profile, g.roadZ = ground, profile, roadZ
@@ -771,8 +815,9 @@ function M.build(s)
 	-- holding the ground up to it.
 	local inner = g.shoulderIn
 	local outside = g.shoulderOut
-	-- (written out, not lidA - 0.25: keeps the 0/0 faces bit-identical)
-	local coverA, coverB = portalX - 6.25, portalX + 30.25
+	-- (from M.layout, written out there, not lidA - 0.25: keeps the 0/0
+	-- faces bit-identical)
+	local coverA, coverB = g.coverA, g.coverB
 	local shoulders = {}
 	local trenchSegments = math.max(1, math.ceil(coverA / wallSegLen))
 	for _, sign in ipairs({ -1, 1 }) do

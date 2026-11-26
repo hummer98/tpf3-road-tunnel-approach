@@ -33,6 +33,7 @@ local lengthValues, lengthNumbers = metres(40, 100, 2)
 local approachValues, approachNumbers = metres(30, 50, 2)
 local depthValues, depthNumbers = metres(13, 25, 1)
 local gradeValues, gradeNumbers = percents(-20, 20)
+local coverValues, coverNumbers = metres(6, 24, 1)
 return {
 	autoRemovable = false,
 	availability = { yearFrom = 0, yearTo = 0 },
@@ -93,6 +94,17 @@ return {
 			values = { _("rtr_wall_thin"), _("rtr_wall_thick") },
 			numbers = { 1, 2 },
 			defaultIndex = 1,
+		},
+		{
+			-- As on the full-width ramp (ramp_geometry.lua LID_*);
+			-- the side streets end with the cover.
+			key = "rtr_cover_length",
+			name = _("rtr_cover_length_name"),
+			tooltip = _("rtr_cover_length_tooltip"),
+			uiType = "Slider",
+			values = coverValues,
+			numbers = coverNumbers,
+			defaultIndex = 13,  -- 18m
 		},
 		{
 			key = "rtr_length",

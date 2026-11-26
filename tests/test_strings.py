@@ -191,5 +191,34 @@ class StringsTest(unittest.TestCase):
             self.assertEqual(left, [], lang)
 
 
+    def test_cover_length_texts(self):
+        # 2026-11-26: the portal cover's whole length (the user: 「全体の長さ
+        # にしてください」), from 6m in front of the portal; the mod setting
+        # is the slider's starting value only (「1.1.0にMODの設定を入れてOK
+        # です」); "初期設定", never "既定"
+        s = load_strings()
+        for lang in LANGS:
+            for key in ("rtr_cover_length_name", "rtr_cover_length_tooltip",
+                        "rtr_cover_length_default_name", "rtr_cover_length_default_tooltip"):
+                self.assertTrue(s[lang][key].strip(), "%s: %s" % (lang, key))
+            tip = s[lang]["rtr_cover_length_tooltip"]
+            for n in ("6", "18", "12"):
+                self.assertIn(n, tip, lang)
+            self.assertIn("18m", s[lang]["rtr_cover_length_default_tooltip"], lang)
+            self.assertNotIn("30", tip, lang)
+            self.assertNotIn("36", tip, lang)
+            self.assertLessEqual(len(s[lang]["rtr_cover_length_name"]), 50, lang)
+        self.assertEqual(s["en"]["rtr_cover_length_name"], "Portal cover length")
+        self.assertEqual(s["ja"]["rtr_cover_length_name"], "ポータル天蓋の長さ")
+        ja = s["ja"]["rtr_cover_length_tooltip"] + s["ja"]["rtr_cover_length_default_tooltip"]
+        self.assertIn("全体の長さ", ja)
+        self.assertIn("坑口の 6m 手前", ja)
+        self.assertIn("初期設定", ja)
+        self.assertNotIn("既定", ja)
+        self.assertIn("置いたものの長さは変わりません", s["ja"]["rtr_cover_length_default_tooltip"])
+        self.assertIn("initial setting", s["en"]["rtr_cover_length_tooltip"])
+        self.assertIn("already placed keep", s["en"]["rtr_cover_length_default_tooltip"])
+
+
 if __name__ == "__main__":
     unittest.main()

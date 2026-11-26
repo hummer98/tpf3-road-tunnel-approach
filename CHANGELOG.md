@@ -9,6 +9,25 @@ The first public release is 1.0.0 (`revision` 10000).
 
 ## [Unreleased]
 
+### Added
+- **Portal cover length** (both constructions): the whole length of the
+  portal cover, 6–24 m in 1 m steps, 18 m initially. The cover starts 6 m
+  in front of the portal as before; 18 m reaches 12 m past the portal, 6 m
+  ends at the portal. The banks beside the cover, the ground held under it
+  and the Median Tunnel Approach's side streets end with it. The 30 m
+  tunnel stub is unchanged.
+- Mod setting **Initial portal cover length** (6–24 m, 18 m initially): the
+  value the Portal cover length slider starts on when you place a new ramp.
+  Ramps already placed keep their own length.
+
+### Changed
+- The portal cover is shorter by default: 18 m (12 m past the portal)
+  instead of 1.0.0's fixed 36 m (30 m past the portal), which looked like a
+  huge concrete slab for a road. New ramps look different from 1.0.0's; the
+  1.0.0 length is no longer offered. The Median Tunnel Approach's side
+  streets are shorter with it (77 m instead of 95 m with the initial
+  settings).
+
 ## [1.0.0] - 2026-11-25
 
 First public release.

@@ -67,6 +67,7 @@ Start a new game with this mod.
 | Underground depth | 13–25 m in 1 m steps (13 m keeps earth above the tunnel roof) | 16 m |
 | Parallel streets | Single, Double, Triple (2 m between carriageways) | Single |
 | Retaining wall | 1.5m / 3.4m, each side from the street edge to the outer edge of the wall top. 1.5m: right against the street edge, a 1.0 m wall and a 0.5 m top band, with a parapet 1.1 m over the ground (the street's own sidewalk or shoulder is the margin beside its lanes). 3.4m: a wider wall, 0.4 m clear, a 1.2 m wall and a coping reaching 1.8 m past it. The portal cover is as wide as the walls | 1.5m |
+| Portal cover length | 6–24 m in 1 m steps: the whole length of the portal cover, which always starts 6 m in front of the portal; 18 m reaches 12 m past the portal, 6 m ends at the portal | 18 m (see the mod setting below) |
 | Traffic direction | Into tunnel / Out of tunnel: one-way highways only; picks which way traffic flows on the street that snaps | Into tunnel |
 | Traffic side | Right-hand / Left-hand: set it to your game's driving side; only matters for parallel one-way highways | Right-hand |
 | Slope curvature | Shallow, Gentle, Normal, Steep, Very steep: the shape of the descent | Normal |
@@ -91,6 +92,17 @@ the portal cover is held above the tunnel stub; the walls, coping and banks
 then rise from the trench start to the cover as an embankment (with steep
 slopes a big one, so a longer or deeper ramp fits such ground better).
 
+The portal cover starts 6 m in front of the portal and runs on for the
+Portal cover length, over the tunnel's first metres where the ground above
+the tunnel roof is thinnest. The banks beside it and the ground held under
+it end with it. The tunnel stub at the bottom stays 30 m whatever the cover
+length. (1.0.0 always laid a 36 m cover, 30 m past the portal.)
+
+Mod setting (in the game's mod settings when you start a new game):
+**Initial portal cover length**, 6–24 m, initially 18 m. It is the value
+the Portal cover length slider of both constructions starts on; ramps
+already placed keep the length they were built with.
+
 ## Median Tunnel Approach
 
 Build menu: **Roads > Road Constructions > Median Tunnel Approach**, right
@@ -109,19 +121,19 @@ approach 30 m, length 100 m), looking down, the tunnel to the right. It is
 24 m across, as wide as the Medium Street it is placed on:
 
 ```
-x (m):    -30       0             59  65         95  100      130
-          snap      |             lid portal     lid end      tunnel end
-y +12.0             |====== side street <- =======|
+x (m):    -30       0             59  65   77        100      130
+          snap      |             lid portal lid end          tunnel end
+y +12.0             |====== side street <- =|
 y  +8.75            |  (centre line; 3.5 m lane, 3 m sidewalk outside)
 y  +5.5             |== side street's inner edge = coping's outer edge
-y  +5.5        coping (0-59) / portal cover (59-95), outer edge
+y  +5.5        coping (0-59) / portal cover (59-77), outer edge
 y  +4.0..5.0   wall (0-65)
 y   0     p == approach ==|== descent ===|== tunnel ========|== stub ==|
 y  -4.0..5.0   wall (0-65)
 y  -5.5        coping / portal cover, outer edge
 y  -5.5             |== side street's inner edge = coping's outer edge
 y  -8.75            |  (centre line)
-y -12.0             |====== side street -> =======|
+y -12.0             |====== side street -> =|
 ```
 
 The centre street is 8 m (cars-only, ±4 m). Nothing joins the side streets
@@ -140,9 +152,9 @@ yourself, with ordinary streets (see below).
   against the coping and the portal cover, the ground under them held
   level with them. They run straight beside the walls and the portal cover,
   as long as the two together: from the descent's start (x = 0) to the
-  cover's far end (the portal + 30 m; 95 m with the initial settings, 56 m
-  with a 40 m ramp), so the ramp length, the depth, the curvature and the
-  slopes set their length. Once built they are ordinary streets of yours,
+  cover's far end (the portal − 6 m + the Portal cover length; 77 m with
+  the initial settings, 38 m with a 40 m ramp), so the ramp length, the
+  depth, the curvature, the slopes and the cover length set their length. Once built they are ordinary streets of yours,
   free at both ends, and the town builds houses on their outer side; the
   wall side carries an invisible decoration that keeps house plots off it.
   Street lights (post-top lamps, by the curb), fireplugs and bins stand on
@@ -198,6 +210,7 @@ coping's outer edge + half the side street):
 | Entry street | 2 (Small Street, 16 m) / 4 (Medium Street, 24 m) / 6 (Large Street, 32 m) | 4 |
 | Centre street | One-lane highway (one-way, 9 m), Country Road (small, 14 m), Small Street (16 m), two lanes for motor vehicles only (8 m) | Motor vehicles only |
 | Retaining wall | 1.5m / 3.4m, as on the full-width ramp | 1.5m |
+| Portal cover length | 6–24 m in 1 m steps, as on the full-width ramp (from 6 m in front of the portal); the side streets end with it | 18 m |
 | Ramp length | 40–100 m in 2 m steps | 100 m |
 | Approach length | 30–50 m in 2 m steps, from the snap point to the side streets' near ends | 30 m |
 | Underground depth | 13–25 m in 1 m steps | 16 m |
@@ -257,6 +270,7 @@ and road tool, left-hand traffic, sloped ground.
 | `content/road_tunnel_ramp/median_geometry.lua` | The median's layout: the centre street choices, the entry table (side street types), where the side streets lie, and the result (the ramp body plus the side streets); no engine access |
 | `content/road_tunnel_ramp/streets/` | The side streets (one and two lanes, sidewalk left / right; the one-lane right one also in the street menu), the invisible wall-side decoration that keeps house plots off the trench side, and the full-width ramp's cars-only street |
 | `content/road_tunnel_ramp/grade.lua` | Pure helpers for the cursor lines (steepest grade of the settings, ground slope fit, formatting), no engine access |
+| `content/mod.script.lua`, `content/road_tunnel_ramp/cover_setting.lua` | The mod setting Initial portal cover length (`mod.json` params): `runFn` adds a `loadConstruction` modifier that sets the Portal cover length slider's starting value (`defaultIndex`) in both constructions; no engine access in `cover_setting.lua` |
 | `content/gui/rtr_grade.script.lua`, `rtr_grade.res.lua` | Adds the grade and ground slope lines under the build cursor by wrapping `construction_react_util.getActionParams`; the ground is read with `api.engine.terrain.getBaseHeightAt` |
 | `content/road_tunnel_ramp/walls/aom_wall_box.msh`, `aom_slab_box.msh`, `aom_strip_box.msh` (each with its `.msh.blob`) | The meshes, made for this mod: each one box (x 0..1, y −0.225..0.225, z 0..1) stretched by the transforms, with texture coordinates set for its part's size: the wall box for a 4 m long, 6 m high wall piece (walls are stacked in boxes of about 6 m), the slab box for a 4 x 4 m cover piece 0.8 m thick (the cover is laid in pieces of about 4 m along and across, and the pattern runs on across the joints), the strip box for a 4 m coping 2.3 m wide |
 | `content/road_tunnel_ramp/walls/wall.mdl`, `slab.mdl`, `strip.mdl` | The part models: the wall, the portal cover (slab), the coping and parapet (strip), each with its own mesh path and the base game's light concrete; written by `tools/wall_models.py`, which sets the mesh paths in one place. `concrete.mdl` is the wall model again under the file name an earlier development build used; the constructions do not place it |
@@ -362,6 +376,7 @@ revision is what lets `stage.py` accept the update. The tests fail when
 | 地下深度 | 13〜25 m、1 m 刻み（13 m あればトンネルの天井の上に土が残ります） | 16 m |
 | 並列車道数 | 1本・2本・3本（車道の間は 2 m） | 1本 |
 | 擁壁の幅 | 1.5m／3.4m。片側の、道路の縁から擁壁の上の外の縁まで。1.5m：道路の縁にじかに接して厚さ 1.0 m の壁と幅 0.5 m の上の帯、壁の上に地面から 1.1 m の壁高欄（車線の脇の余白は、道路の型の歩道か路肩）。3.4m：幅の広い擁壁で、0.4 m あけて厚さ 1.2 m の壁と、その外へ 1.8 m 張り出す笠石。ポータル天蓋の幅も擁壁に合わせます | 1.5m |
+| ポータル天蓋の長さ | 6〜24 m、1 m 刻み。ポータル天蓋の全体の長さで、天蓋はいつも坑口の 6 m 手前から始まります。18 m で坑口から 12 m 先まで、6 m で坑口でちょうど終わります | 18 m（下の MOD の設定で変えられます） |
 | 進行方向 | トンネルへ下る／トンネルから上る。一方通行の高速道路だけ。接続する車道の交通の向きを選びます | トンネルへ下る |
 | 通行区分 | 右側通行／左側通行。ゲームの通行区分に合わせます。一方通行の高速道路を並べたときだけ効きます | 右側通行 |
 | 勾配カーブ | ゆるい・なだらか・標準・急・非常に急。下り坂の形 | 標準 |
@@ -372,17 +387,21 @@ revision is what lets `stage.py` accept the update. The tests fail when
 
 傾斜地では、配置カーソルの下の「地面の勾配」の2つの値を、2つの地面の勾配の設定にそのまま入れます。擁壁・笠石・ポータル天蓋がその勾配に沿い、天蓋の脇と先の地面もその勾配に合わせて土手を作ります。ポータルの位置は、その勾配から（ポータル天蓋の低い側の端で）測ったトンネルの上の土の厚さで決まります。道路そのものは接続先の道路と同じ高さで水平のままなので、勾配を入れたときは手前の道路にも接続点から擁壁と笠石が付き、その間の地面を道路の高さまで削るか盛ります。ランプの深さで潜りきれないほど急な下り坂では、下り坂全体が切り通しのままになり、ポータル天蓋は底のトンネルの上に保たれます。擁壁・笠石・土手は掘割の始まりから天蓋まで盛土として上がっていきます（急な坂ほど大きな盛土になるので、そういう地面には長いか深いランプが向いています）。
 
+ポータル天蓋は坑口の 6 m 手前から始まり、「ポータル天蓋の長さ」だけ延びて、トンネルの天井の上の土がいちばん薄い入口近くを覆います。天蓋の脇の土手と、天蓋の下に保つ地面も、天蓋の端で終わります。底のトンネル（30 m）の長さは、天蓋の長さによらず変わりません（1.0.0 の天蓋は、いつも全体 36 m、坑口から 30 m 先まででした）。
+
+MOD の設定（新しいゲームを始めるときの MOD の設定）：**ポータル天蓋の長さの初期値**。6〜24 m、初期設定は 18 m。2つの建設物の「ポータル天蓋の長さ」のスライダーが、新しく置くときにこの値から始まります。置いたものの長さは変わりません。
+
 ### 道路中央の地下進入路
 
 建設メニュー：**道路 > 道路建設 > 道路中央の地下進入路**（道路地下進入路のすぐ後）。全幅のランプと同じく道路の端に接続して置くか、空き地に置きます。どちらでも、側道は自分でつなぎます。
 
 町の道路の幅いっぱいに地下進入路を作ると、その脇は道路にならず、建物が建ちません。この建設物は、道路の中央だけを地下へ下ろします。2車線の中央の道が、全幅のランプと同じ下り坂・擁壁・笠石・ポータル天蓋・土手・底の 30 m のトンネルで地下の道路トンネルへ下り、両側には一方通行の側道が地上に残ります。
 
-初期設定（入口 4、車専用の中央、擁壁 1.5 m、手前 30 m、長さ 100 m）の平面図は、英語の節の図を見てください（全体の幅はつなぐ「街道（中）」と同じ 24 m。側道の中心は中心線から ±8.75 m、外の縁は ±12 m、笠石と天蓋の外の縁と側道の内の縁は ±5.5 m、側道は下り坂の始まり（x = 0）から天蓋の終わり（x = 95）まで）。側道は道路につながっていません。手前の分かれ目と、遠い端の先の合流は、ふつうの道路で自分で引きます（下を見てください）。
+初期設定（入口 4、車専用の中央、擁壁 1.5 m、手前 30 m、長さ 100 m）の平面図は、英語の節の図を見てください（全体の幅はつなぐ「街道（中）」と同じ 24 m。側道の中心は中心線から ±8.75 m、外の縁は ±12 m、笠石と天蓋の外の縁と側道の内の縁は ±5.5 m、側道は下り坂の始まり（x = 0）から天蓋の終わり（x = 77）まで）。側道は道路につながっていません。手前の分かれ目と、遠い端の先の合流は、ふつうの道路で自分で引きます（下を見てください）。
 
 - 中央の道：全幅のランプの2車線の道から選びます。「街道（小）」、「田舎道（小）」、1車線高速道路（一方通行。「進行方向」を見てください）、「2車線 車専用 歩道なし」（初期設定、8 m）。手前の平らな道路は、全幅のランプと同じく、ふつうの道路として手放します（両端とも、つなげる端です）。下り坂・トンネル・底のトンネルは建設物に残り、擁壁の脇には何も建ちません。
 - 擁壁：1.5 m（初期設定）か 3.4 m。全幅のランプと同じです。側道は擁壁の上の外の縁に合わせて外へずれます。
-- 側道：両側に1本ずつ。一方通行で、歩道は外側だけです。笠石とポータル天蓋にぴったり付けて（その下の地面は側道と同じ高さに保ちます）、擁壁とポータル天蓋の脇を、その長さだけまっすぐに延びます。下り坂の始まり（x = 0）から天蓋の終わり（ポータルの 30 m 先。初期設定で 95 m、長さ 40 m で 56 m）までで、ランプの長さ・深さ・勾配カーブ・地面の勾配に合わせて長さが変わります。建設が終わると、ふつうの道路として手放され（両端とも、つなげる端です）、町は側道の外側に建物を建てます。擁壁の側には、区画ができないようにする見えない飾りが付いています。街灯（柱の上に灯りの付いた型。縁石の近く）・消火栓・ごみ箱は歩道の側だけに立ちます。各側道の向きは「通行区分」で決まります。
+- 側道：両側に1本ずつ。一方通行で、歩道は外側だけです。笠石とポータル天蓋にぴったり付けて（その下の地面は側道と同じ高さに保ちます）、擁壁とポータル天蓋の脇を、その長さだけまっすぐに延びます。下り坂の始まり（x = 0）から天蓋の終わり（坑口の 6 m 手前 ＋ ポータル天蓋の長さ。初期設定で 77 m、長さ 40 m で 38 m）までで、ランプの長さ・深さ・勾配カーブ・地面の勾配・天蓋の長さに合わせて長さが変わります。建設が終わると、ふつうの道路として手放され（両端とも、つなげる端です）、町は側道の外側に建物を建てます。擁壁の側には、区画ができないようにする見えない飾りが付いています。街灯（柱の上に灯りの付いた型。縁石の近く）・消火栓・ごみ箱は歩道の側だけに立ちます。各側道の向きは「通行区分」で決まります。
 - 入口の道：進入路が受け持つ町の道を、車線の数で選びます。**2**（「街道（小）」16 m）と **4**（「街道（中）」24 m、初期設定）は、側道が各1車線（6.5 m：車線 3.5 m、歩道 3 m。入口 4 では全体が「街道（中）」と同じ 24 m）。**6**（「街道（大）」32 m）は、側道が各2車線（11.5 m：4 m × 2、歩道 3.5 m）。中央はどれも各方向1車線です（高速道路では一方通行）。
 - 分かれ目と合流：自分で引きます。本当は、4車線の道の前後にそのままきれいにつながる、ひとまとまりの形にしたかったのですが、どうやってもできませんでした。すみませんが、ここは自分で引いてください。道路の端に接続して置いたときは、手前の道路がそこから始まり、側道の手前の端はその 30〜50 m 先（「手前の道路の長さ」）なので、その端から各側道へ S 字の道路を引く余地があります。空き地に置いたときは、手前の道路の始まりと側道の両端が、どれもつなげる端です。手前の道路はふつうの道路なので、撤去して別の形の分かれ目を引くこともできます。
   - 1車線の側道は、道路のメニューにも **側道（片側歩道の一方通行）** としてあります（「街道（小）」の並び、バニラの一方通行の後）。交通の向きに引くと歩道は右になり、右側通行では掘割のどちら側でも外側になります。側道と同じく、左側（歩道の無い側）には建物が建ちません。
@@ -405,6 +424,7 @@ revision is what lets `stage.py` accept the update. The tests fail when
 | 入口の道 | 2（「街道（小）」16 m）／4（「街道（中）」24 m）／6（「街道（大）」32 m） | 4 |
 | 中央の道 | 1車線高速道路（一方通行・9 m）、田舎道（小）（14 m）、街道（小）（16 m）、2車線 車専用（歩道なし・8 m） | 車専用 |
 | 擁壁の幅 | 1.5m／3.4m（全幅のランプと同じ） | 1.5m |
+| ポータル天蓋の長さ | 6〜24 m、1 m 刻み（全幅のランプと同じ。坑口の 6 m 手前から）。側道も天蓋の端で終わります | 18 m |
 | ランプの長さ | 40〜100 m、2 m 刻み | 100 m |
 | 手前の道路の長さ | 30〜50 m、2 m 刻み。接続点から側道の手前の端まで | 30 m |
 | 地下深度 | 13〜25 m、1 m 刻み | 16 m |

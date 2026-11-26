@@ -42,7 +42,11 @@ class PackageTest(unittest.TestCase):
                 "content/road_tunnel_ramp/streets/median_side_r.street_template.lua",
                 "content/gui/rtr_grade.script.lua",
                 "content/road_tunnel_ramp/ramp_geometry.lua",
-                "content/road_tunnel_ramp/median_geometry.lua"]
+                "content/road_tunnel_ramp/median_geometry.lua",
+                # the mod setting Initial portal cover length (mod.json
+                # runScript and the module it requires)
+                "content/mod.script.lua",
+                "content/road_tunnel_ramp/cover_setting.lua"]
         # the cover is shot in game after the code is ready; until then
         # check() refuses to build (test_missing_cover_stops_...), so a
         # release can never go out without it
