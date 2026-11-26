@@ -872,9 +872,10 @@ function M.build(s)
 		{ type = "GREATER", faces = lidSupport,   slopeLow = 100,  slopeHigh = 100, optional = true },
 	}
 	-- Past a lid shorter than HOLD_AHEAD, the ground over the tunnel up to
-	-- holdB is filled to where the lid support holds it under the lid (the
-	-- lifted plane - 0.55, over the roof by the lift), with gentle banks as
-	-- an embankment; no slab. Only when lifted: unlifted, the plane is over
+	-- holdB is filled to the lifted plane itself (lidZ: there is no slab to
+	-- make room for, unlike the lid support's - 0.55), so it meets the end
+	-- bank's height and keeps lidClear (about 0.6m) over the roof, with
+	-- gentle banks as an embankment (review, 2026-11-26). Only when lifted: unlifted, the plane is over
 	-- the roof by lidClear on that run already. Last of the body's lists
 	-- (after the sloped approach's face), so their numbers stay; the 36m
 	-- lid has none.
@@ -893,7 +894,7 @@ function M.build(s)
 
 	if g.lift > 0 and holdB > coverB + 1e-9 then
 		sub.terrainAlignmentLists[#sub.terrainAlignmentLists + 1] = {
-			type = "GREATER", faces = { face(lidZ, coverB, holdB, -lidEdge, lidEdge, -0.55) },
+			type = "GREATER", faces = { face(lidZ, coverB, holdB, -lidEdge, lidEdge, 0) },
 			slopeLow = 0.45, slopeHigh = 1, optional = true,
 		}
 	end

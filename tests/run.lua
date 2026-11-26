@@ -4751,8 +4751,9 @@ do
 								for _, f in ipairs(faces) do
 									local x0, x1 = f[1][1], f[2][1]
 									if x >= x0 - 1e-9 and x <= x1 + 1e-9 then
-										-- planar: the plane through the face's corners
-										z = math.max(z, g.lidZ(x, y) - 0.55)
+										-- planar: under the lid 0.55 below the lid's plane,
+										-- past it on the plane
+										z = math.max(z, g.lidZ(x, y) - (f == tl[4].faces[1] and 0.55 or 0))
 									end
 								end
 								return z
@@ -4775,7 +4776,7 @@ do
 								near(f[1][1], g.coverB, 1e-9, tag .. ": hold from the lid's terrain end")
 								near(f[2][1], g.portalX + 30.25, 1e-9, tag .. ": to 30.25m past the portal")
 								eq(hold.slopeLow, 0.45, tag .. ": gentle fill banks")
-								for _, v in ipairs(f) do near(v[3], g.lidZ(v[1], v[2]) - 0.55, 1e-9, tag .. ": on the lifted plane - 0.55") end
+								for _, v in ipairs(f) do near(v[3], g.lidZ(v[1], v[2]), 1e-9, tag .. ": on the lifted plane (no slab)") end
 								checked = checked + 1
 							end
 						end
@@ -4786,7 +4787,7 @@ do
 		assert(checked > 0, "some hold faces")
 	end)
 
-	test("cover length: the lift only looks under the lid, so a shorter lid is lifted no more; at 6m it stays finite and over the plane", function()
+	test("cover length: the lift is the same at every length (36m too), finite and never below the plane, at 6m as well", function()
 		for _, base in ipairs(RAMP_CASES) do
 			local prev = -1
 			for _, C in ipairs({ 6, 12, 18, 24 }) do
@@ -4794,12 +4795,12 @@ do
 				local g = rampGeo.layout(s)
 				assert(g.lift == g.lift and g.lift < math.huge, "finite lift")
 				assert(g.lift >= 0, "never lowered")
-				assert(g.lift >= prev - 1e-12, string.format("lift grows with the length: %g after %g", g.lift, prev))
+				if prev >= 0 then eq(g.lift, prev, "the same lift at " .. C) end
 				prev = g.lift
 			end
 			local s = rampGeo.spec(defaultCap(), defaultParams(base))
 			s.lidLength = 36
-			assert(rampGeo.layout(s).lift >= prev - 1e-12, "36m lifted at least as much as 24m")
+			eq(rampGeo.layout(s).lift, prev, "36m lifted as 24m")
 		end
 	end)
 
