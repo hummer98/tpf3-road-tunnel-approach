@@ -9,9 +9,13 @@
 -- A way the engine refuses may log "map_util.h:22 ... Assertion" in the
 -- Sim Pool (TC7: the game went on).
 --
---   sed -e 's/__CONSTRUCTION__/23456/' tools/e2e/approach_tram_steps.lua > "$SCRATCH/steps.lua"
+-- __WAY__: one way's name in quotes (one eval per way, so a game that stops
+-- on an assert loses only that way's answer: "same-bare" first), or "all".
+--
+--   sed -e 's/__CONSTRUCTION__/23456/' -e 's/__WAY__/"same-bare"/' tools/e2e/approach_tram_steps.lua > "$SCRATCH/steps.lua"
 --   python3 .../tf3ctl.py --owner mod-keeper eval --write --gs --file "$SCRATCH/steps.lua"
 local CONSTRUCTION = __CONSTRUCTION__
+local WAY = __WAY__
 
 local tram = require "road_tunnel_ramp::/road_tunnel_ramp/approach_tram.lua"
 local CT = api.type.ComponentType
@@ -29,7 +33,12 @@ local plan, why = tram.plan(api, CONSTRUCTION)
 if not plan then out.stage = "plan: " .. tostring(why); return out end
 out.plan = tram.describe(plan)
 
+local known = false
+for _, w in ipairs(WAYS) do if WAY == "all" or w.name == WAY then known = true end end
+if not known then out.stage = "no way named " .. tostring(WAY); return out end
+
 for _, w in ipairs(WAYS) do
+	if WAY == "all" or w.name == WAY then
 	local r = { way = w.name, done = {} }
 	local failed = false
 	local function step(name, fn)
@@ -97,8 +106,13 @@ for _, w in ipairs(WAYS) do
 	local proposal = step("SimpleProposal.new", function() return api.type.SimpleProposal.new() end)
 	step("edgesToRemove", function() proposal.streetProposal.edgesToRemove = removes end)
 	step("edgesToAdd", function() proposal.streetProposal.edgesToAdd = adds end)
+	-- The three asks each run on their own, whatever went before them
+	-- (whether the mod's context is the cause is one of the questions),
+	-- once the proposal is whole.
+	local whole = not failed
 	local function verdict(name, ctx)
-		step(name, function()
+		if not whole then return end
+		local ok, err = pcall(function()
 			local data = api.engine.util.proposal.makeProposalData(proposal, ctx)
 			local v = { critical = false, messages = {} }
 			pcall(function()
@@ -107,13 +121,16 @@ for _, w in ipairs(WAYS) do
 			end)
 			r[name] = v
 		end)
+		if not ok then r[name] = { raised = tostring(err) } end
 	end
 	verdict("makeProposalData(context)", tram.context(api))
-	-- (with none, as electrify.tl sends it; after a raise above nothing more runs)
+	-- (with none, as electrify.tl sends it)
 	verdict("makeProposalData(nil)", nil)
-	step("makeWorldBuildProposalCmd (not sent)", function()
-		api.cmd.makeWorldBuildProposalCmd(proposal, tram.context(api), false, false)
-	end)
+	if whole then
+		local ok, err = pcall(function() api.cmd.makeWorldBuildProposalCmd(proposal, tram.context(api), false, false) end)
+		r["makeWorldBuildProposalCmd (not sent)"] = ok and "made" or { raised = tostring(err) }
+	end
 	out.ways[#out.ways + 1] = r
+	end
 end
 return out

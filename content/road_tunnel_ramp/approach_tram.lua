@@ -450,6 +450,7 @@ function M.templateLanes(api, item, old, choice, params)
 	local idx = rep and tonumber(try(function() return rep.find(name) end))
 	if not idx or idx < 0 then return nil, "template " .. name .. " not found" end
 	local t = try(function() return rep.get(idx) end)
+	local style = t and try(function() return t.streetStyle end)
 	local lanes = t and list(try(function() return t.laneConfigs end)) or {}
 	local built = item.lanes
 	if #lanes ~= #built then return nil, string.format("template %s has %d lanes, the edge %d", name, #lanes, #built) end
@@ -464,7 +465,7 @@ function M.templateLanes(api, item, old, choice, params)
 		for nm in pairs(M.TRACK) do if built[i].modes[nm] then want = true end end
 		if track ~= (want and not strip[i]) then return nil, "template " .. name .. ": lane " .. i .. " has the track where the edge keeps none or the other way" end
 	end
-	return lanes, name
+	return lanes, name, style
 end
 
 -- The ways to lay an approach again, tried in this order (M.firstPassing)
@@ -475,7 +476,7 @@ end
 -- Assertion it != map.end()" in the Sim Pool, while electrify.tl's way
 -- (the edge's own BASE_EDGE, a template's laneConfigs, nothing else) is
 -- the base game's [source]. Which part the engine refused is not known
--- yet [guess]; tools/e2e/approach_tram_send.lua asks each part apart.
+-- yet [guess]; tools/e2e/approach_tram_steps.lua asks each part apart.
 M.VARIANTS = {
 	{ name = "template", lanes = "template", streetEdge = true, playerOwned = true },
 	{ name = "template-bare", lanes = "template" },
@@ -502,11 +503,16 @@ function M.makeProposal(api, plan, opts)
 		local strip = {}
 		for _, i in ipairs(item.strip) do strip[i] = true end
 		local lanes = list(old.laneConfigs)
-		local newLanes
+		local newLanes, template
 		if opts.lanes == "template" then
-			local tl, why = M.templateLanes(api, item, old, plan.choice, plan.params or {})
+			local tl, why, style = M.templateLanes(api, item, old, plan.choice, plan.params or {})
 			if not tl then error("edge " .. item.edge .. ": " .. tostring(why)) end
 			newLanes = tl
+			-- (a copy other than the edge's own type: its name and style go
+			-- with its lanes, as electrify.tl writes both)
+			if why ~= tostring(try(function() return old.roadTemplate end)) then
+				template = { name = why, style = style }
+			end
 		elseif opts.lanes == "same" then
 			newLanes = lanes
 		else
@@ -520,6 +526,10 @@ function M.makeProposal(api, plan, opts)
 		seg.type = 0
 		seg.comp = old
 		seg.comp.laneConfigs = newLanes
+		if template then
+			seg.comp.roadTemplate = template.name
+			if template.style ~= nil then seg.comp.roadStyle = template.style end
+		end
 		local back = list(seg.comp.laneConfigs)
 		if #back ~= #lanes then error("edge " .. item.edge .. ": the lanes were not written as asked") end
 		if opts.lanes ~= "same" then
@@ -563,11 +573,13 @@ function M.verdict(api, proposal, context)
 	return nil
 end
 
--- The first of M.VARIANTS the engine takes: proposal, its name, and the
--- others' failures on the way; or nil and every failure.
-function M.firstPassing(api, plan, context)
+-- The first of M.VARIANTS (from number `from`, 1 when nil) the engine
+-- takes: proposal, its name, the others' failures on the way, and its
+-- number; or nil and every failure.
+function M.firstPassing(api, plan, context, from)
 	local fails = {}
-	for _, v in ipairs(M.VARIANTS) do
+	for k = from or 1, #M.VARIANTS do
+		local v = M.VARIANTS[k]
 		local ok, proposal = pcall(M.makeProposal, api, plan, v)
 		local why
 		if not ok then
@@ -575,7 +587,7 @@ function M.firstPassing(api, plan, context)
 		else
 			why = M.verdict(api, proposal, context)
 		end
-		if not why then return proposal, v.name, fails end
+		if not why then return proposal, v.name, fails, k end
 		fails[#fails + 1] = v.name .. ": " .. why
 	end
 	return nil, nil, fails

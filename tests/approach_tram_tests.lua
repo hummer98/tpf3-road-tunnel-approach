@@ -80,7 +80,7 @@ local function fakeApi(world)
 	local names = { COPY_F, COPY_K }
 	api.res = { streetTemplateRep = {
 		find = function(name) for i, n in ipairs(names) do if n == name then return i end end return -1 end,
-		get = function(i) return { laneConfigs = copyLanes(i == 1 and "f" or "k") } end,
+		get = function(i) return { laneConfigs = copyLanes(i == 1 and "f" or "k"), streetStyle = "town_new.street" } end,
 	} }
 	api.engine = {
 		getComponent = function(e, ct)
@@ -407,6 +407,22 @@ test("approach tram: templateName and templateLanes take the chosen copy only wh
 	assert(way:find("written", 1, true), "falls to a written way: " .. way)
 end)
 
+test("approach tram: left-hand traffic takes the k copy for Right, and a base-typed edge gets the copy's name and style", function()
+	local w = world({ params = { rtr_tram = 3, rtr_side = 2 } })
+	w.edges[10].roadTemplate = COPY_K
+	local api = fakeApi(w)
+	local plan = assert(tram.plan(api, 100))
+	assert(same(plan.edges[1].strip, { 3 }), "Right, left-hand: the forward lane's track goes")
+	local tl, name = tram.templateLanes(api, plan.edges[1], api.engine.getComponent(10, "BASE_EDGE"), plan.choice, plan.params)
+	assert(tl, tostring(name)); eq(name, COPY_K, "k copy")
+	-- the edge typed as the base street: the copy for the choice, named on the new edge
+	w.edges[10].roadTemplate = "::/infrastructure/street/town/town_new_small.street_template"
+	local p = tram.makeProposal(api, plan)
+	local c = p.streetProposal.edgesToAdd[1].comp
+	eq(c.roadTemplate, COPY_K, "the copy's name"); eq(c.roadStyle, "town_new.street", "the copy's style")
+	assert(has(c.laneConfigs[2], "TRAM") and not has(c.laneConfigs[3], "TRAM"), "track on lane 2 only")
+end)
+
 test("approach tram: firstPassing tries the ways in order until makeProposalData takes one", function()
 	local w = world()
 	local api = fakeApi(w)
@@ -546,6 +562,18 @@ test("approach tram script: Both, a refused build, other mods' builds and a miss
 	run(d.handleEvent, {}, newState(), "", tram.EVENT_ID, tram.EVENT_NAME, { construction = 100 })
 	eq(#fapi.sent, 1, "sent the second way"); eq(#lines, 1, "one line")
 	assert(lines[1]:find('"template-bare" way', 1, true), lines[1])
+	-- the engine takes the first way, but its command raises: the next way is sent
+	d, fapi, newState, run, lines = scriptWith(world())
+	local made = 0
+	local realMake = fapi.cmd.makeWorldBuildProposalCmd
+	fapi.cmd.makeWorldBuildProposalCmd = function(...)
+		made = made + 1
+		if made == 1 then error("std::exception") end
+		return realMake(...)
+	end
+	run(d.handleEvent, {}, newState(), "", tram.EVENT_ID, tram.EVENT_NAME, { construction = 100 })
+	eq(#fapi.sent, 1, "the second way sent"); eq(#lines, 1, "one line")
+	assert(lines[1]:find('"template-bare" way', 1, true) and lines[1]:find("not sent", 1, true), lines[1])
 end)
 
 -- The e2e scripts, with their placeholders filled, against the stand-in.
@@ -598,17 +626,24 @@ test("approach tram e2e steps script: every way's steps, the first that raised, 
 		end
 		return { errorState = { critical = false, messages = {} } }
 	end
-	local ok, out = pcall(e2eChunk("approach_tram_steps.lua", { __CONSTRUCTION__ = "100" }))
+	local ok, out = pcall(e2eChunk("approach_tram_steps.lua", { __CONSTRUCTION__ = "100", __WAY__ = '"all"' }))
+	local okOne, one = pcall(e2eChunk("approach_tram_steps.lua", { __CONSTRUCTION__ = "100", __WAY__ = '"same-bare"' }))
+	local okBad, bad = pcall(e2eChunk("approach_tram_steps.lua", { __CONSTRUCTION__ = "100", __WAY__ = '"x"' }))
 	local fapi = api
 	api = oldApi
+	assert(okOne, tostring(one)); eq(#one.ways, 1, "one way asked"); eq(one.ways[1].way, "same-bare", "that one")
+	assert(okBad, tostring(bad)); assert(bad.stage:find("no way named", 1, true), bad.stage)
 	assert(ok, tostring(out))
 	eq(#out.ways, 6, "six ways"); eq(#fapi.sent, 0, "nothing sent")
 	local by = {}
 	for _, r in ipairs(out.ways) do by[r.way] = r end
 	eq(by["same-bare"].failedAt, nil, "same-bare passes"); eq(by["template-bare"].template, COPY_F, "template named")
-	eq(by["template"].failedAt, "makeProposalData(context)", "template: where it raised")
-	assert(by["template"].error:find("std::exception", 1, true), by["template"].error)
+	eq(by["template"].failedAt, nil, "template: every step done")
+	assert(by["template"]["makeProposalData(context)"].raised:find("std::exception", 1, true), "template: raised with the context")
+	assert(by["template"]["makeProposalData(nil)"].raised, "template: asked without the context too")
+	eq(by["template"]["makeWorldBuildProposalCmd (not sent)"], "made", "the command made all the same")
+	eq(by["template-bare"]["makeProposalData(context)"].critical, false, "template-bare taken")
 	eq(by["written-bare"].failedAt, nil, "written-bare passes")
 	eq(by["written-bare"].lanesBack[2].modes, "CAR BUS TRUCK", "lane 2 read back without track")
-	eq(by["same"].failedAt, "makeProposalData(context)", "same with the copies raises too")
+	assert(by["same"]["makeProposalData(nil)"].raised, "same with the copies raises too")
 end)

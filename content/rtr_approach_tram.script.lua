@@ -152,7 +152,7 @@ local function lay(param)
 	-- approach_tram.lua M.VARIANTS; TC7's first way raised in the engine)
 	local what = tram.describe(plan)
 	local context = tram.context(api)
-	local proposal, way, fails = tram.firstPassing(api, plan, context)
+	local proposal, way, fails, k = tram.firstPassing(api, plan, context)
 	if not proposal then
 		return log(string.format("construction %d (%s): no way taken, the track stays on both sides: %s", con, what,
 			table.concat(fails, " | ")))
@@ -161,11 +161,7 @@ local function lay(param)
 		return log(string.format("dry run, construction %d, %s: the engine takes \"%s\"%s", con, what, way,
 			#fails > 0 and (" (not: " .. table.concat(fails, " | ") .. ")") or ""))
 	end
-	-- (a way after the first is worth a line: the next e2e reads which)
-	if #fails > 0 then
-		log(string.format("construction %d: laid again the \"%s\" way (not: %s)", con, way, table.concat(fails, " | ")))
-	end
-	local okS, err = pcall(tram.send, api, proposal, function(success, msg)
+	local function answer(success, msg)
 		if not success then
 			log(string.format("construction %d: refused (%s, the \"%s\" way), the track stays on both sides:%s", con, what, way, msg))
 			return
@@ -175,8 +171,26 @@ local function lay(param)
 			log(string.format("construction %d: built (%s), but edge %s still has the track on both sides", con, what,
 				table.concat(left, ",")))
 		end
-	end)
-	if not okS then log("construction " .. con .. ": not sent, the track stays on both sides: " .. tostring(err)) end
+	end
+	-- (a way the engine takes in makeProposalData but whose command raises
+	-- goes on to the next way, as a raise in makeProposalData does)
+	while true do
+		local okS, err = pcall(tram.send, api, proposal, answer)
+		if okS then break end
+		fails[#fails + 1] = way .. ": not sent: " .. tostring(err)
+		-- (not `_`: that is the game's translation function)
+		local more
+		proposal, way, more, k = tram.firstPassing(api, plan, context, k + 1)
+		for _, f in ipairs(more or {}) do fails[#fails + 1] = f end
+		if not proposal then
+			return log(string.format("construction %d (%s): no way sent, the track stays on both sides: %s", con, what,
+				table.concat(fails, " | ")))
+		end
+	end
+	-- (a way after the first is worth a line: the next e2e reads which)
+	if #fails > 0 then
+		log(string.format("construction %d: laid again the \"%s\" way (not: %s)", con, way, table.concat(fails, " | ")))
+	end
 end
 
 -- Subscribed from update only, asking the engine whether this load has the
