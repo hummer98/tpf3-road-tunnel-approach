@@ -8,16 +8,21 @@
 -- 2026-11-24, "0 streets read back"). The setting changes only the
 -- slider's starting value: placed ramps keep their own length.
 
-local setting = require "road_tunnel_ramp::/road_tunnel_ramp/cover_setting.lua"
-
 local function say(msg)
 	local f = log and log.message or print
 	f("[road_tunnel_ramp] " .. msg)
 end
 
+-- pcall: a module that fails to load must not take the load down either
+local okSetting, setting = pcall(require, "road_tunnel_ramp::/road_tunnel_ramp/cover_setting.lua")
+
 function data()
 	return {
 		runFn = function(_captureParams, second, third)
+			if not okSetting then
+				say("cover_setting.lua failed to load, the cover slider starts on 18m: " .. tostring(setting))
+				return
+			end
 			local p = setting.modParamsFrom(third, second)
 			local len = setting.lengthFromModParam(p[setting.KEY])
 			-- pcall: an addModifier that raises must not take the load down;

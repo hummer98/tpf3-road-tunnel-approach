@@ -130,6 +130,15 @@ end
 -- menu is held to the slider's range.
 M.LID_MIN, M.LID_MAX, M.LID_DEFAULT = 6, 24, 18
 M.LID_BEHIND = 6
+-- The ground over the tunnel's first HOLD_AHEAD past the portal is held
+-- over the tunnel roof whatever the lid's length: 1.0.0's lid reached that
+-- far, and on downhill ground too steep for the ramp (the portal at the
+-- descent's foot) it was all that kept the stub, from the portal on, under
+-- ground. With a shorter lid the lift is found over the same run and the
+-- ground past the lid is filled to the lifted plane (holdFace in M.build):
+-- without it the stub came out of the ground by 0.55m (16m deep, 4% down)
+-- to 24m (20% down) [review 2026-11-26, offline layout].
+M.HOLD_AHEAD = 30
 
 function M.value(p, key, default, lo, hi)
 	local n = tonumber(p[key])
@@ -389,8 +398,9 @@ function M.layout(s)
 	-- as a whole (lift) until the ground under the cover is 0.6m over
 	-- the tunnel roof (just under the cover at the portal, so level
 	-- ground, where the cover is met exactly, never trips it),
-	-- checked where the cover spans the tunnel (from the portal on,
-	-- including the faces' 0.25m margin). The walls, coping and banks
+	-- checked from the portal to the cover's end or HOLD_AHEAD past the
+	-- portal, whichever is further (with the faces' 0.25m margin), so a
+	-- shorter cover is lifted as 1.0.0's 36m one was. The walls, coping and banks
 	-- ramp up to it from the trench start, an embankment instead of
 	-- a lid floating over the walls.
 	local roofHalf = copingOut
@@ -401,8 +411,10 @@ function M.layout(s)
 	local coverA, coverB = portalX - 6.25, portalX + (ahead + 0.25)
 	local lidClear = math.min(cover, tunnelHeight + 0.6) - 0.01
 	local lift = 0
+	-- (holdB is lidB for 1.0.0's 36m lid, so its lift stays to the bit)
+	local holdB = math.max(lidB, portalX + M.HOLD_AHEAD)
 	for k = 0, 10 do
-		local x = portalX + (lidB + 0.25 - portalX) * k / 10
+		local x = portalX + (holdB + 0.25 - portalX) * k / 10
 		for _, y in ipairs({ -roofHalf - 0.25, roofHalf + 0.25 }) do
 			lift = math.max(lift, roadZ(x) + lidClear - ground(x, y))
 		end
@@ -435,6 +447,7 @@ function M.layout(s)
 	g.cover, g.portal, g.portalX = cover, portal, portalX
 	g.lidA, g.lidB, g.lift = lidA, lidB, lift
 	g.lidLength, g.coverA, g.coverB = lidLength, coverA, coverB
+	g.holdB = holdB
 	g.floorOuter, g.shoulderOut = floorOuter, shoulderOut
 	g.wall, g.shoulderIn = w, outer + w.shoulderIn
 	g.ground, g.profile, g.roadZ = ground, profile, roadZ
@@ -858,6 +871,14 @@ function M.build(s)
 		{ type = "LESS",    faces = { coverFace }, slopeLow = 100, slopeHigh = 100, optional = true },
 		{ type = "GREATER", faces = lidSupport,   slopeLow = 100,  slopeHigh = 100, optional = true },
 	}
+	-- Past a lid shorter than HOLD_AHEAD, the ground over the tunnel up to
+	-- holdB is filled to where the lid support holds it under the lid (the
+	-- lifted plane - 0.55, over the roof by the lift), with gentle banks as
+	-- an embankment; no slab. Only when lifted: unlifted, the plane is over
+	-- the roof by lidClear on that run already. Last of the body's lists
+	-- (after the sloped approach's face), so their numbers stay; the 36m
+	-- lid has none.
+	local holdB = g.holdB + 0.25
 	-- The approach street stays level at Z (it has to meet the road
 	-- it snaps to), so on a stated slope its ground between the
 	-- approach walls is cut or filled to the trench floor level.
@@ -868,6 +889,13 @@ function M.build(s)
 			            { 0, floorOuter, Z - 0.25 }, { -approach, floorOuter, Z - 0.25 } } },
 			slopeLow = 0.45, slopeHigh = 1, optional = true,
 		})
+	end
+
+	if g.lift > 0 and holdB > coverB + 1e-9 then
+		sub.terrainAlignmentLists[#sub.terrainAlignmentLists + 1] = {
+			type = "GREATER", faces = { face(lidZ, coverB, holdB, -lidEdge, lidEdge, -0.55) },
+			slopeLow = 0.45, slopeHigh = 1, optional = true,
+		}
 	end
 
 	r.cost = math.floor((L + approach + runout) * 300 * count + D * 2000)

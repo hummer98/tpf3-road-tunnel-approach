@@ -20,8 +20,11 @@ M.CONS = { ramp = true, median = true }
 
 -- A mod param arrives as its 1-based position in mod.json's "values",
 -- not as mod.json's 0-based defaultIndex [measured 2026-11-24 with
--- hummer_pier_spike and remote_probe: an unset Off/On switch with
--- defaultIndex 0 arrived as 1; source: its mod.script.lua enabled()]. The
+-- hummer_pier_spike and remote_probe, ComboBox and Button settings only:
+-- an unset Off/On switch with defaultIndex 0 arrived as 1; source: its
+-- mod.script.lua enabled(). For a Slider setting, not measured here; the
+-- mod.io mod 6432568 says sliders come the same way (dashboard_export,
+-- "sliders included (seen in stdout.txt)"); e2e pending]. The
 -- values are 6m .. 24m, so position i is 5 + i metres. Missing, junk, not
 -- whole or out of range: the initial 18m (geometry.LID_DEFAULT), as for
 -- the slider itself.
@@ -63,10 +66,11 @@ function M.modParamsFrom(...)
 end
 
 -- Which of this mod's constructions a loadConstruction file name is: "ramp",
--- "median" or nil. The name's form is not known for a mod's own file
--- [guess: like the base game's "<dir>/<name>.con", maybe with the mod's
--- "road_tunnel_ramp::/" in front or ".lua" behind; AoM's kindOf takes
--- those], so the path's end is matched, after a "/" or ":" or nothing.
+-- "median" or nil. For the base game's the modifier gets
+-- "::/depots/rail/rail_depot.con.lua" [measured: AoM's log, clean_depot];
+-- for a mod's own file "road_tunnel_ramp::/road_tunnel_ramp/ramp.con.lua"
+-- is likely [guess; e2e pending], so the path's end is matched, after a
+-- "/" or ":" or nothing, with or without ".lua".
 function M.conOf(fileName)
 	if type(fileName) ~= "string" then return nil end
 	for _, tail in ipairs({ ".con", ".con.lua" }) do

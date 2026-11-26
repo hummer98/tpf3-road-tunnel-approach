@@ -15,7 +15,9 @@ The first public release is 1.0.0 (`revision` 10000).
   in front of the portal as before; 18 m reaches 12 m past the portal, 6 m
   ends at the portal. The banks beside the cover, the ground held under it
   and the Median Tunnel Approach's side streets end with it. The 30 m
-  tunnel stub is unchanged.
+  tunnel stub is unchanged. On downhill ground too steep for the ramp, the
+  ground over the tunnel's first 30 m past the portal is still held above
+  it, past a shorter cover as an embankment without a slab.
 - Mod setting **Initial portal cover length** (6–24 m, 18 m initially): the
   value the Portal cover length slider starts on when you place a new ramp.
   Ramps already placed keep their own length.

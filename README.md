@@ -88,8 +88,10 @@ The street itself stays level with the road it snaps to, so on a stated slope
 the approach street gets walls and coping too, from the snap point on, and
 the ground between them is cut or filled to the street. On downhill
 ground steeper than the ramp can get under, the whole descent stays open and
-the portal cover is held above the tunnel stub; the walls, coping and banks
-then rise from the trench start to the cover as an embankment (with steep
+the portal cover and the ground over the tunnel's first 30 m past the portal
+are held above the tunnel stub (past a shorter cover, as an embankment
+without a slab); the walls, coping and banks then rise from the trench
+start to the cover as an embankment (with steep
 slopes a big one, so a longer or deeper ramp fits such ground better).
 
 The portal cover starts 6 m in front of the portal and runs on for the
@@ -385,7 +387,7 @@ revision is what lets `stage.py` accept the update. The tests fail when
 
 標準での最大勾配は、およそ 1.5 × 深さ ÷ 長さ です（深さ 16 m・長さ 100 m で 24%）。ゆるい・なだらかは直線に近く、両端にわずかな勾配の段差があります。急・非常に急は両端を長く平らに保ち、中央を急にします。
 
-傾斜地では、配置カーソルの下の「地面の勾配」の2つの値を、2つの地面の勾配の設定にそのまま入れます。擁壁・笠石・ポータル天蓋がその勾配に沿い、天蓋の脇と先の地面もその勾配に合わせて土手を作ります。ポータルの位置は、その勾配から（ポータル天蓋の低い側の端で）測ったトンネルの上の土の厚さで決まります。道路そのものは接続先の道路と同じ高さで水平のままなので、勾配を入れたときは手前の道路にも接続点から擁壁と笠石が付き、その間の地面を道路の高さまで削るか盛ります。ランプの深さで潜りきれないほど急な下り坂では、下り坂全体が切り通しのままになり、ポータル天蓋は底のトンネルの上に保たれます。擁壁・笠石・土手は掘割の始まりから天蓋まで盛土として上がっていきます（急な坂ほど大きな盛土になるので、そういう地面には長いか深いランプが向いています）。
+傾斜地では、配置カーソルの下の「地面の勾配」の2つの値を、2つの地面の勾配の設定にそのまま入れます。擁壁・笠石・ポータル天蓋がその勾配に沿い、天蓋の脇と先の地面もその勾配に合わせて土手を作ります。ポータルの位置は、その勾配から（ポータル天蓋の低い側の端で）測ったトンネルの上の土の厚さで決まります。道路そのものは接続先の道路と同じ高さで水平のままなので、勾配を入れたときは手前の道路にも接続点から擁壁と笠石が付き、その間の地面を道路の高さまで削るか盛ります。ランプの深さで潜りきれないほど急な下り坂では、下り坂全体が切り通しのままになり、ポータル天蓋と、坑口から 30 m 先までのトンネルの上の地面は、底のトンネルより上に保たれます（天蓋が短いときは、その先を板のない盛土にします）。擁壁・笠石・土手は掘割の始まりから天蓋まで盛土として上がっていきます（急な坂ほど大きな盛土になるので、そういう地面には長いか深いランプが向いています）。
 
 ポータル天蓋は坑口の 6 m 手前から始まり、「ポータル天蓋の長さ」だけ延びて、トンネルの天井の上の土がいちばん薄い入口近くを覆います。天蓋の脇の土手と、天蓋の下に保つ地面も、天蓋の端で終わります。底のトンネル（30 m）の長さは、天蓋の長さによらず変わりません（1.0.0 の天蓋は、いつも全体 36 m、坑口から 30 m 先まででした）。
 
