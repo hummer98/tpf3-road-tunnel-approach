@@ -27,7 +27,9 @@ Start a new game with this mod.
 - Only the flat approach keeps the chosen street's sidewalks. From the start
   of the descent into the tunnel the street has the same lanes with a 0.5 m
   shoulder each side and no sidewalks (a highway's wide shoulders become
-  0.5 m too); nobody walks into a road tunnel. The width taken off goes to
+  0.5 m too), drawn with the same lines as the street in front (a town
+  street's lines without its curbs and sidewalk paving); nobody walks into
+  a road tunnel. The width taken off goes to
   the retaining walls, which stand that much further in, so the ramp is no
   wider, and the step of the terrain from the trench floor up to the ground
   lies under the wall and its top (with the 1.5 m wall a narrow groove used
@@ -381,7 +383,7 @@ revision is what lets `stage.py` accept the update. The tests fail when
 
 - 1つの建設物で、進入路をまとめて敷きます。平らな手前の道路、笠石付きの擁壁にはさまれた切り通しの下り坂、天蓋の付いたポータル、底の長さ 30 m のトンネルです。まわりの地形も掘り下げてならします。
 - 道路とトンネルはバニラのもの（トンネルはバニラの自動車用トンネル）なので、車両はふつうの道路と同じように通ります。下り坂の道路（次の項）、トラムの線路付きの道路（ほかの道路の写し）、下の車専用の道路だけは、この MOD のものです。
-- 選んだ道路の歩道が残るのは、手前の平らな道路だけです。下り坂の始まりからトンネルまでは、同じ車線に両側 0.5 m の路肩が付いた、歩道のない道路になります（高速道路の広い路肩も 0.5 m になります）。道路トンネルに歩いて入る人はいないためです。外した幅は擁壁にあてて、擁壁がその分だけ内側まで来るので、ランプの幅は広がりません。掘割の底から地面までの地形の段差は、擁壁とその上の帯の下に隠れます（擁壁 1.5 m では、上の帯に沿って細い溝が見えていました）。底のトンネル（30 m）は選んだ道路に戻るので、そこから延ばすトンネルを同じ種類にできます（トラムの線路を付けたときは、底のトンネルもこの MOD の写しの道路になるので、延ばすトンネルは別の種類になります。そこを車やトラムが通るかは、ゲームでまだ確認していません）。2車線の車専用の道路には外す歩道がないので、擁壁 1.5 m では、上の帯に沿う細い溝が残ることがあります。
+- 選んだ道路の歩道が残るのは、手前の平らな道路だけです。下り坂の始まりからトンネルまでは、同じ車線に両側 0.5 m の路肩が付いた、歩道のない道路になります（高速道路の広い路肩も 0.5 m になります）。線は手前の道路と同じです（街道は、縁石と歩道の舗装を描かない街道の線）。道路トンネルに歩いて入る人はいないためです。外した幅は擁壁にあてて、擁壁がその分だけ内側まで来るので、ランプの幅は広がりません。掘割の底から地面までの地形の段差は、擁壁とその上の帯の下に隠れます（擁壁 1.5 m では、上の帯に沿って細い溝が見えていました）。底のトンネル（30 m）は選んだ道路に戻るので、そこから延ばすトンネルを同じ種類にできます（トラムの線路を付けたときは、底のトンネルもこの MOD の写しの道路になるので、延ばすトンネルは別の種類になります。そこを車やトラムが通るかは、ゲームでまだ確認していません）。2車線の車専用の道路には外す歩道がないので、擁壁 1.5 m では、上の帯に沿う細い溝が残ることがあります。
 - 道路の種類は7つ。1車線高速道路（9 m）から街道（大）（32 m）まで。幅の広い道路を選ぶと、溝・擁壁・ポータル天蓋も広がります。
 - 一覧の最後に8つ目として、2車線の車専用の道路（各方向 3.5 m の1車線、8 m）があります。両側に 0.5 m の路肩があり、歩道はなく、歩行者は通れません。つないだ道路から車が入れるかは、ゲームでまだ確認していません。
 - 3本まで並べて敷けます。一方通行の高速道路では、上下線のそろった道路（2本）や 2+1（3本）になり、選んだ通行区分に合わせて各方向を正しい側に置きます。

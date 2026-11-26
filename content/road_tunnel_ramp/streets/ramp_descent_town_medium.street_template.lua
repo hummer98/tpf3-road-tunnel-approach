@@ -39,8 +39,12 @@ return {
 		priority = 400,
 		roadType = "STREET",
 		sidewalkFillGroundTex = "::/infrastructure/street/shared/highway_safety_lane.gtex",
-		-- A country style, as ramp_car_only's: every base town style draws sidewalk paving and curbs on the outer lanes, which would put back the look of a sidewalk.
-		streetStyle = "::/infrastructure/street/country/country_new_large.street",
+		-- The town street's own lines without its curbs and sidewalk paving
+		-- (ramp_descent_town_large.street): every base town style draws those on the
+		-- outer lanes, and the country style used before put yellow lines
+		-- after the town street's white ones (the user: 「導入路と手前の道の
+		-- 種類が合ってないきがしますが」, 2026-11-26).
+		streetStyle = "road_tunnel_ramp::/road_tunnel_ramp/streets/ramp_descent_town_large.street",
 		builderAudioRes = "::/gui/construction/sound/buildoze_street.builder_audio",
 	}
 end

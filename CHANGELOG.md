@@ -27,7 +27,9 @@ The first public release is 1.0.0 (`revision` 10000).
 - **The descent has no sidewalks** (both constructions). Only the flat
   approach keeps the chosen street's sidewalks; from the start of the
   descent into the tunnel the street has the same lanes with a 0.5 m
-  shoulder each side (a highway's wide shoulders become 0.5 m too).
+  shoulder each side (a highway's wide shoulders become 0.5 m too), drawn
+  with the same lines as the street in front (a town street's lines without
+  its curbs and sidewalk paving).
   Pedestrians cannot walk down the ramp. The width taken off goes to the
   retaining walls, which stand that much further in: the ramp, the portal
   cover and the Median Tunnel Approach's side streets are as wide as before.

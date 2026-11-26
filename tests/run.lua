@@ -5203,8 +5203,9 @@ do
 			eq(t.initiallyLocked, true, "entry " .. i .. " locked")
 			eq(t.simBuildable, nil, "entry " .. i .. " towns do not build it")
 			eq(t.description.name, "rtr_descent_name", "entry " .. i .. " name")
-			-- town styles draw curbs and sidewalk paving on the outer lanes
-			assert(not t.streetStyle:find("/town/"), "entry " .. i .. " style " .. t.streetStyle)
+			-- the base town styles draw curbs and sidewalk paving on the outer
+			-- lanes: the town descents have this mod's copies without them
+			assert(not t.streetStyle:find("^::/infrastructure/street/town/"), "entry " .. i .. " style " .. t.streetStyle)
 			local base = baseTemplate(st.ref)
 			if base then
 				seenBase = seenBase + 1
@@ -5830,6 +5831,113 @@ test("descent: on a cross slope the thickened wall's top runs under the coping a
 	end
 	assert(n > 1000, "points checked: " .. n)
 end)
+
+------------------------------------------------------------------------
+-- The descent's street style matches the street in front (2026-11-26; the
+-- user: 「導入路と手前の道の種類が合ってないきがしますが」, chose 1): the town
+-- streets' descents have the base town style's lines without its curbs and
+-- sidewalk paving (streets/ramp_descent_town*.street), the country roads'
+-- and highways' their base street's own style.
+------------------------------------------------------------------------
+do
+	local cap = defaultCap()
+	local STREET_ZIP = os.getenv("HOME") .. "/.local/share/Steam/steamapps/common/Transport Fever 3/base/content/infrastructure/street.zip"
+	local function zipData(member)
+		local fh = io.open(STREET_ZIP, "rb")
+		if not fh then return nil end
+		fh:close()
+		local p = assert(io.popen(string.format("unzip -p %q %q 2>/dev/null", STREET_ZIP, member)))
+		local src = p:read("*a"); p:close()
+		if src == "" then return nil end
+		local env = setmetatable({ _ = function(x) return x end }, { __index = _G })
+		local chunk = assert(loadstring(src, member)); setfenv(chunk, env); chunk()
+		return env.data()
+	end
+	-- the base street styles the base town streets use, and their descents' copies
+	local TOWN_STYLES = {
+		["::/infrastructure/street/town/town_new.street"] = "road_tunnel_ramp::/road_tunnel_ramp/streets/ramp_descent_town.street",
+		["::/infrastructure/street/town/town_new_large.street"] = "road_tunnel_ramp::/road_tunnel_ramp/streets/ramp_descent_town_large.street",
+	}
+	-- what each entry's street uses (street.zip; written out for when it is missing)
+	local BASE_STYLE = {
+		"::/infrastructure/street/highway/highway_small.street",
+		"::/infrastructure/street/country/country_new_small.street",
+		"::/infrastructure/street/town/town_new.street",
+		"::/infrastructure/street/highway/highway.street",
+		"::/infrastructure/street/country/country_new_large.street",
+		"::/infrastructure/street/town/town_new_large.street",
+		"::/infrastructure/street/town/town_new_large.street",
+	}
+
+	test("style: each descent is drawn as the street in front: town lines for the town streets, the base style for the others (and their tram copies)", function()
+		for i = 1, 7 do
+			local st = cap.streets[i]
+			local base = zipData("street" .. st.ref:match("^::/infrastructure/street(.*)$") .. ".lua")
+			local baseStyle = base and base.streetStyle or BASE_STYLE[i]
+			eq(baseStyle, BASE_STYLE[i], "entry " .. i .. " base style")
+			local want = TOWN_STYLES[baseStyle] or baseStyle
+			local isTown = st.ref:find("/town/", 1, true) ~= nil
+			eq(TOWN_STYLES[baseStyle] ~= nil, isTown, "entry " .. i .. ": town streets have the town styles")
+			eq(templateOf(st.descent.ref).streetStyle, want, "entry " .. i .. " descent")
+			for _, lanes in ipairs(st.oneWay and { "f", "k" } or { "b", "f", "k" }) do
+				for _, power in ipairs({ "tram", "etram" }) do
+					eq(templateOf(rampGeo.tramRef(st.descent.ref, lanes, power)).streetStyle, want, "entry " .. i .. " tram copy")
+					-- the approach's copy keeps the base street's own style
+					eq(templateOf(rampGeo.tramRef(st.ref, lanes, power)).streetStyle, baseStyle, "entry " .. i .. " approach copy")
+				end
+			end
+		end
+	end)
+
+	-- a style with the base paths written out, as this mod's styles write them
+	local function normal(v)
+		if type(v) == "string" then
+			if v:find("^/") then return "::" .. v end
+			if v:find("^mat/") then return "::/infrastructure/street/town/" .. v end
+			return v
+		end
+		if type(v) ~= "table" then return v end
+		local out = {}
+		for k, x in pairs(v) do out[k] = normal(x) end
+		return out
+	end
+	local SIDEWALK = { sidewalkPaving = true, sidewalkLane = true, sidewalkBorderInner = true, sidewalkBorderOuter = true,
+		sidewalkCurb = true, sidewalkWall = true }
+
+	test("style: the town descents' styles are the base town styles without sidewalk materials, assets or the withSidewalk category", function()
+		for baseRef, modRef in pairs(TOWN_STYLES) do
+			local mine = loadData("/content" .. modRef:match("^road_tunnel_ramp::(/.*)$") .. ".lua")
+			local tag = modRef:match("([%w_]+)%.street$")
+			for k, m in pairs(mine.materials) do
+				if SIDEWALK[k] then
+					eq(next(m), nil, tag .. " " .. k .. " empty")
+				end
+			end
+			eq(next(mine.assets), nil, tag .. " no street assets")
+			for _, c in ipairs(mine.categoryList.categories) do assert(c ~= "withSidewalk", tag .. " category") end
+			assert(mine.materials.streetStripe and mine.materials.streetStripe.name:find("new_town_", 1, true), tag .. " town stripes")
+			local base = zipData("street" .. baseRef:match("^::/infrastructure/street(.*)$") .. ".lua")
+			if base then
+				base = normal(base)
+				for k, m in pairs(base.materials) do
+					if not SIDEWALK[k] then
+						local ok, why = sameValue(mine.materials[k], m, tag .. ".materials." .. k)
+						assert(ok, why)
+					end
+				end
+				for k in pairs(mine.materials) do assert(base.materials[k], tag .. " extra material " .. k) end
+				local ok, why = sameValue(mine.catenary, base.catenary, tag .. ".catenary"); assert(ok, why)
+				for _, k in ipairs({ "roadType", "priority" }) do eq(mine[k], base[k], tag .. " " .. k) end
+				ok, why = sameValue(mine.arrowIndices, base.arrowIndices, tag .. ".arrowIndices"); assert(ok, why)
+				local cats = {}
+				for _, c in ipairs(base.categoryList.categories) do if c ~= "withSidewalk" then cats[#cats + 1] = c end end
+				ok, why = sameValue(mine.categoryList.categories, cats, tag .. " categories"); assert(ok, why)
+			else
+				print("     (base part skipped: street.zip not found)")
+			end
+		end
+	end)
+end
 
 print(string.format("\n%d passed, %d failed", passes, failures))
 os.exit(failures == 0 and 0 or 1)
