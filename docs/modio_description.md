@@ -15,7 +15,7 @@ Snap it to the end of a street. It lays a flat approach street, the descent in a
 - Street type: Small, Medium and Large Street, Small and Medium Country Road, One- and Two-Lane Highway (one-way), or two lanes for motor vehicles only (8 m, no sidewalks; this mod's own street).
 - Up to three streets side by side (a divided highway or 2+1 with the one-way highways).
 - Ramp length 40–100 m, approach length 2–50 m, underground depth 13–25 m, slope curvature (five shapes), retaining wall 1.5 m (with a parapet) or 3.4 m, traffic side and direction.
-- Portal cover length 6–24 m (18 m initially; it starts 6 m in front of the portal). The mod setting **Initial portal cover length** picks the value new ramps start on.
+- Portal cover length 10–24 m (18 m initially; it starts 6 m in front of the portal). The mod setting **Initial portal cover length** picks the value new ramps start on.
 - Ground slope along and across (−20 to +20%): the walls, coping and cover follow sloped ground. The steepest grade of the settings and the measured slope of the ground under the cursor are shown under the build cursor.
 
 ### Median Tunnel Approach: only the centre goes down
@@ -49,7 +49,7 @@ License: MIT. Source code: https://github.com/hummer98/tpf3-road-tunnel-approach
 - 道路種類：街道（小・中・大）、田舎道（小・中）、一方通行の1車線・2車線高速道路、歩道なしの2車線の車専用（8 m。この MOD の道路）。
 - 3本まで並べられます（一方通行の高速道路で、上下線のそろった道路や 2+1）。
 - ランプの長さ 40〜100 m、手前の道路の長さ 2〜50 m、地下深度 13〜25 m、勾配カーブ（5種類）、擁壁 1.5 m（壁高欄付き）か 3.4 m、通行区分、進行方向。
-- ポータル天蓋の長さ 6〜24 m（初期設定 18 m。天蓋は坑口の 6 m 手前から始まります）。MOD の設定「天蓋の長さの初期値」で、新しく置くときの値を選べます。
+- ポータル天蓋の長さ 10〜24 m（初期設定 18 m。天蓋は坑口の 6 m 手前から始まります）。MOD の設定「天蓋の長さの初期値」で、新しく置くときの値を選べます。
 - 地面の縦断・横断勾配（−20〜+20%）：傾斜地で擁壁・笠石・天蓋が地面に沿います。いまの設定での最大勾配と、カーソルの下の地面の勾配を、配置カーソルの下に出します。
 
 ### 道路中央の地下進入路：中央だけを下ろす

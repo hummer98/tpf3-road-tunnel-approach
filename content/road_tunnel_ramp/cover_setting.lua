@@ -22,12 +22,15 @@ M.CONS = { ramp = true, median = true }
 -- not as mod.json's 0-based defaultIndex [measured 2026-11-24 with
 -- hummer_pier_spike and remote_probe, ComboBox and Button settings only:
 -- an unset Off/On switch with defaultIndex 0 arrived as 1; source: its
--- mod.script.lua enabled(). For a Slider setting, not measured here; the
--- mod.io mod 6432568 says sliders come the same way (dashboard_export,
--- "sliders included (seen in stdout.txt)"); e2e pending]. The
--- values are 6m .. 24m, so position i is 5 + i metres. Missing, junk, not
--- whole or out of range: the initial 18m (geometry.LID_DEFAULT), as for
--- the slider itself.
+-- mod.script.lua enabled(). For a Slider setting, measured 2026-11-26
+-- with this mod's 1.1.0 (6..24m): the setting at position 1 made the menu
+-- start on 6m, at 19 on 24m; the mod.io mod 6432568 says sliders come the
+-- same way (dashboard_export, "sliders included (seen in stdout.txt)")].
+-- The values are LID_MIN .. LID_MAX, so position i is LID_MIN - 1 + i
+-- metres: a game set up with 1.1.0 gets LID_MIN - 6 metres more for the
+-- same position, and a position past the end reads as 18m. Missing, junk,
+-- not whole or out of range: the initial 18m (geometry.LID_DEFAULT), as
+-- for the slider itself.
 function M.lengthFromModParam(raw)
 	local i = tonumber(raw)
 	local n = geometry.LID_MAX - geometry.LID_MIN + 1
@@ -35,7 +38,7 @@ function M.lengthFromModParam(raw)
 	return geometry.LID_MIN + i - 1
 end
 
--- mod.json's defaultIndex (0-based) for a length: 6 -> 0, 18 -> 12, 24 -> 18
+-- mod.json's defaultIndex (0-based) for a length: LID_MIN -> 0
 function M.modDefaultIndex(len)
 	return len - geometry.LID_MIN
 end
@@ -43,8 +46,7 @@ end
 -- A .con param's defaultIndex is 1-based [source: the base game's
 -- param_util.tl catenary defaultIndex = 2 is "Yes"; gui construction.tl
 -- getParamDefaultValue takes numbers[defaultIndex]; this mod's own
--- rtr_length defaultIndex = #lengthNumbers is 100m]: 6 -> 1, 18 -> 13,
--- 24 -> 19 in the 6..24 slider.
+-- rtr_length defaultIndex = #lengthNumbers is 100m]: LID_MIN -> 1.
 function M.conDefaultIndex(len)
 	return len - geometry.LID_MIN + 1
 end

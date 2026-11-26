@@ -65,7 +65,7 @@ test("script: exports updateFn", function()
 end)
 
 -- 1.0.0's portal cover, 36m long, which the menu no longer offers
--- (rtr_cover_length is 6-24m, out of range reads as 18m): fn runs with every
+-- (rtr_cover_length is LID_MIN-24m, above it reads as 18m): fn runs with every
 -- spec read by ramp_geometry.spec (the ramp's, the median's, the tests'
 -- own calls) given lidLength 36, so the frozen builds before the option can
 -- still be compared bit for bit through the real scripts.
@@ -1528,10 +1528,10 @@ test("ground: walls and shoulders run on along the approach to the snap point wi
 	eq(#modelsByTagPrefix(flat, "approach_"), 0, "level ground: no approach walls (the old layout)")
 end)
 
--- Every cover length's ends (rtr_cover_length): at 6m the lid ends on the
--- portal, so the lift's check (from the portal to the lid's end) is 0.25m.
+-- Every cover length's ends (rtr_cover_length): the slider's shortest
+-- (LID_MIN), the initial 18m and the longest.
 test("ground: steep downhill keeps the lid and the ground under it out of the tunnel", function()
-	for _, C in ipairs({ 6, 18, 24 }) do
+	for _, C in ipairs({ rampGeo.LID_MIN, 18, 24 }) do
 	for _, D in ipairs({ 13, 16, 25 }) do
 		for _, along in ipairs({ -4, -6, -10, -20 }) do
 			for _, across in ipairs({ -10, 0, 10 }) do
@@ -1623,7 +1623,7 @@ test("ground: coping follows the plane along and across", function()
 end)
 
 test("ground: the portal lid lies on the plane", function()
-	for _, C in ipairs({ 6, 13, 18, 24 }) do
+	for _, C in ipairs({ rampGeo.LID_MIN, 13, 18, 24 }) do
 	for _, sc in ipairs(slopeCases) do
 		local r = oneBox(script.updateFn(defaultCap(), defaultParams({ rtr_ground_along = sc.along, rtr_ground_across = sc.across, rtr_cover_length = C })))
 		local g = expectGround(sc.along, sc.across, 20, 0)
@@ -1674,7 +1674,7 @@ test("ground: shoulder, cover and lid-support faces follow the plane", function(
 end)
 
 test("ground: shoulders widen, run past the lid and keep out of the lid area; lid support skips the trench mouth", function()
-	for _, C in ipairs({ 6, 18, 24 }) do
+	for _, C in ipairs({ rampGeo.LID_MIN, 18, 24 }) do
 	local r = script.updateFn(defaultCap(), defaultParams({ rtr_ground_along = 5, rtr_cover_length = C }))
 	local lists = r.subconstructions[1].terrainAlignmentLists
 	local sh = lists[2]
@@ -4554,7 +4554,7 @@ end
 
 ------------------------------------------------------------------------
 -- Portal cover length (rtr_cover_length, 2026-11-26): the cover's whole
--- length, 6-24m in 1m steps, 18 initially, from 6m in front of the portal
+-- length, LID_MIN-24m in 1m steps, 18 initially, from 6m in front of the portal
 -- (lidA) as before; 1.0.0's 36m is not offered. A mod.io comment asked why
 -- a road needs that huge slab; the user: 「しかし、現在は確かに長過ぎる気が
 -- します」「30とかそもそもいらないので、6-18ぐらいをスライダーにするとかは？」
@@ -4562,9 +4562,28 @@ end
 ------------------------------------------------------------------------
 do
 	local rampSpec = loadData("/content/road_tunnel_ramp/ramp.con.lua")
-	local LENGTHS = { 6, 7, 12, 18, 23, 24 }
+	local MIN = rampGeo.LID_MIN
+	local LENGTHS = { MIN, MIN + 1, 12, 18, 23, 24 }
 
-	test("cover length: both menus offer rtr_cover_length 6-24m in 1m steps after the wall, 18m initially", function()
+	-- 1.1.1: the lower end raised from 6m. At 6m the lid ended on the portal
+	-- and the top of the game's tunnel portal piece (tunnel_a_car) showed
+	-- past it [in game, picture, 2026-11-26]; the user: 「6mはなんかおかしい
+	-- ですよね」「下限を上げて隠す、ということですね」「OKです。その方針で」.
+	-- e2e picks 8, 10 or 12 (10 until then); 18m initially and 24m at most
+	-- stay.
+	test("cover length: the range is 8, 10 or 12 to 24m, 18m initially; the shortest reaches past the portal", function()
+		assert(MIN == 8 or MIN == 10 or MIN == 12, "LID_MIN " .. tostring(MIN))
+		eq(rampGeo.LID_MAX, 24, "max")
+		eq(rampGeo.LID_DEFAULT, 18, "initial")
+		assert(MIN > rampGeo.LID_BEHIND, "the shortest lid starts in front of the portal and ends past it")
+		local p = defaultParams()
+		p.rtr_cover_length = MIN
+		local _, g = rampGeo.build(rampGeo.spec(defaultCap(), p))
+		near(g.lidB - g.portalX, MIN - 6, 1e-9, "the shortest lid's run past the portal")
+		assert(g.lidB - g.portalX >= 2 - 1e-9, "at least 2m past the portal")
+	end)
+
+	test("cover length: both menus offer rtr_cover_length LID_MIN-24m in 1m steps after the wall, 18m initially", function()
 		for _, spec in ipairs({ rampSpec, medianSpec }) do
 			local keys, prm = {}, nil
 			for i, q in ipairs(spec.params) do
@@ -4578,10 +4597,11 @@ do
 			eq(prm.uiType, "Slider", "a slider, as rtr_length")
 			eq(prm.name, "rtr_cover_length_name", "name key")
 			eq(prm.tooltip, "rtr_cover_length_tooltip", "tooltip key")
-			eq(#prm.numbers, 19, "19 values")
+			eq(#prm.numbers, 24 - MIN + 1, "LID_MIN..24")
+			eq(#prm.values, #prm.numbers, "a label for each")
 			for i, n in ipairs(prm.numbers) do
-				eq(n, 5 + i, "numbers")
-				eq(prm.values[i], (5 + i) .. "m", "labels")
+				eq(n, MIN - 1 + i, "numbers")
+				eq(prm.values[i], (MIN - 1 + i) .. "m", "labels")
 			end
 			eq(prm.numbers[prm.defaultIndex], 18, "18m initially")
 			eq(prm.numbers[prm.defaultIndex], rampGeo.LID_DEFAULT, "the same as the script's")
@@ -4590,8 +4610,31 @@ do
 		end
 	end)
 
-	test("cover length: missing, junk and out of range read as 18m; in range to the whole metre", function()
-		for _, v in ipairs({ "nil", "abc", 0 / 0, 0, -6, 5, 5.99, 24.01, 25, 30, 36, 1e9, math.huge, -math.huge, true }) do
+	-- Below the range: LID_MIN. A ramp placed with 1.1.0's 6-9m keeps that
+	-- value in its params and is rebuilt with the shortest length, which is
+	-- also what its settings window's slider shows (the nearest of its
+	-- numbers: gui script_param_util.tl findNumberIndex1).
+	test("cover length: below the range reads as LID_MIN, 1.1.0's 6-9m too, and builds as LID_MIN", function()
+		for _, v in ipairs({ 6, 7, 8, 9, 9.99, MIN - 0.01, 5, 5.99, 0, -6, -math.huge, "6" }) do
+			if tonumber(v) < MIN then
+				local p = { rtr_cover_length = v }
+				eq(rampGeo.lidLengthOf(p), MIN, "value " .. tostring(v))
+				eq(rampGeo.spec(defaultCap(), p).lidLength, MIN, "spec, value " .. tostring(v))
+				eq(medianGeo.spec(medianCap, p).lidLength, MIN, "median spec, value " .. tostring(v))
+			end
+		end
+		local ref = script.updateFn(defaultCap(), defaultParams({ rtr_cover_length = MIN }))
+		local mref = median.updateFn(medianCap, { rtr_cover_length = MIN })
+		for _, v in ipairs({ 6, MIN - 1, 0 }) do
+			deepEq(script.updateFn(defaultCap(), defaultParams({ rtr_cover_length = v })), ref, "ramp " .. v)
+			deepEq(median.updateFn(medianCap, { rtr_cover_length = v }), mref, "median " .. v)
+		end
+		local _, g = rampGeo.build(rampGeo.spec(defaultCap(), defaultParams({ rtr_cover_length = 6 })))
+		assert(g.lidB > g.portalX, "1.1.0's 6m rebuilt past the portal")
+	end)
+
+	test("cover length: missing, junk and above the range read as 18m; in range to the whole metre", function()
+		for _, v in ipairs({ "nil", "abc", 0 / 0, 24.01, 25, 30, 36, 1e9, math.huge, true }) do
 			local p = {}
 			if v ~= "nil" then p.rtr_cover_length = v end
 			eq(rampGeo.lidLengthOf(p), 18, "value " .. tostring(v))
@@ -4599,13 +4642,13 @@ do
 			eq(medianGeo.spec(medianCap, p).lidLength, 18, "median spec, value " .. tostring(v))
 		end
 		eq(rampGeo.lidLengthOf(nil), 18, "no params")
-		for _, c in ipairs({ { 6, 6 }, { 24, 24 }, { 13, 13 }, { "12", 12 }, { 12.4, 12 }, { 12.5, 13 }, { 6.2, 6 }, { 23.6, 24 } }) do
+		for _, c in ipairs({ { MIN, MIN }, { 24, 24 }, { 13, 13 }, { "13", 13 }, { 12.4, 12 }, { 12.5, 13 }, { MIN + 0.2, MIN }, { 23.6, 24 } }) do
 			eq(rampGeo.lidLengthOf({ rtr_cover_length = c[1] }), c[2], "value " .. tostring(c[1]))
 		end
 		-- and the whole build: nil and out of range build the 18m ramp and median
 		local ref = script.updateFn(defaultCap(), defaultParams({ rtr_cover_length = 18 }))
 		local mref = median.updateFn(medianCap, { rtr_cover_length = 18 })
-		for _, v in ipairs({ "nil", 0, 5, 25, 36, "abc" }) do
+		for _, v in ipairs({ "nil", 25, 36, "abc" }) do
 			local p = defaultParams()
 			local q = {}
 			if v ~= "nil" then p.rtr_cover_length = v; q.rtr_cover_length = v end
@@ -4653,7 +4696,7 @@ do
 				near(g.lidB - g.lidA, C, 1e-9, tag .. ": lidB = lidA + length")
 				eq(g.coverA, px - 6.25, tag .. ": coverA")
 				near(g.coverB, g.lidB + 0.25, 1e-9, tag .. ": coverB 0.25m past the lid")
-				if C == 6 then eq(g.lidB, px, tag .. ": 6m ends on the portal") end
+				near(g.lidB - px, C - 6, 1e-9, tag .. ": C - 6 past the portal")
 				-- the slab: pieces of at most 4m from lidA to lidB
 				local pieces = modelsByTagPrefix(r, "portal_top_cover_")
 				local nA = rampGeo.coverAcross(g.roofHalf * 2)
@@ -4787,11 +4830,14 @@ do
 		assert(checked > 0, "some hold faces")
 	end)
 
+	-- (6m given to the module itself: the slider no longer offers it, the
+	-- layout still takes any length from LID_BEHIND on)
 	test("cover length: the lift is the same at every length (36m too), finite and never below the plane, at 6m as well", function()
 		for _, base in ipairs(RAMP_CASES) do
 			local prev = -1
-			for _, C in ipairs({ 6, 12, 18, 24 }) do
-				local s = rampGeo.spec(defaultCap(), defaultParams(with(base, { rtr_cover_length = C })))
+			for _, C in ipairs({ 6, MIN, 12, 18, 24 }) do
+				local s = rampGeo.spec(defaultCap(), defaultParams(base))
+				s.lidLength = C
 				local g = rampGeo.layout(s)
 				assert(g.lift == g.lift and g.lift < math.huge, "finite lift")
 				assert(g.lift >= 0, "never lowered")
@@ -4807,8 +4853,9 @@ do
 	test("cover length: the default ramp has 104 models (1.0.0: 128; the 18m cover in 5 x 6 pieces instead of 9 x 6)", function()
 		eq(#script.updateFn(defaultCap(), {}).subconstructions[1].models, 104, "the default ramp")
 		local n = {}
-		for _, C in ipairs({ 6, 24 }) do n[C] = #script.updateFn(defaultCap(), { rtr_cover_length = C }).subconstructions[1].models end
-		eq(n[6], 128 - 9 * 6 + 2 * 6, "6m: 2 x 6 pieces")
+		for _, C in ipairs({ MIN, 24 }) do n[C] = #script.updateFn(defaultCap(), { rtr_cover_length = C }).subconstructions[1].models end
+		local along = math.ceil(MIN / 4 - 1e-9)
+		eq(n[MIN], 128 - 9 * 6 + along * 6, "the shortest: " .. along .. " x 6 pieces")
 		eq(n[24], 128 - 9 * 6 + 6 * 6, "24m: 6 x 6 pieces")
 	end)
 
@@ -4874,17 +4921,22 @@ do
 	local setting = require "road_tunnel_ramp::/road_tunnel_ramp/cover_setting.lua"
 	local rampConData = loadData("/content/road_tunnel_ramp/ramp.con.lua")
 
-	test("mod setting: the mod param (1-based position in 6m..24m) to a length; missing, junk and out of range are 18m", function()
-		for i = 1, 19 do eq(setting.lengthFromModParam(i), 5 + i, "position " .. i) end
-		eq(setting.lengthFromModParam("1"), 6, "a numeric string")
-		eq(setting.lengthFromModParam(13), 18, "the mod.json default (defaultIndex 12) arrives as 13")
-		for _, v in ipairs({ "nil", 0, -1, 20, 100, 1.5, 12.9, 0 / 0, math.huge, "abc", true }) do
+	local MIN = rampGeo.LID_MIN
+	local N = rampGeo.LID_MAX - MIN + 1   -- the positions
+
+	test("mod setting: the mod param (1-based position in LID_MIN..24m) to a length; missing, junk and out of range are 18m", function()
+		for i = 1, N do eq(setting.lengthFromModParam(i), MIN - 1 + i, "position " .. i) end
+		eq(setting.lengthFromModParam(1), MIN, "position 1: the shortest")
+		eq(setting.lengthFromModParam(N), 24, "the last position: 24m")
+		eq(setting.lengthFromModParam("1"), MIN, "a numeric string")
+		eq(setting.lengthFromModParam(18 - MIN + 1), 18, "the mod.json default (defaultIndex 18 - LID_MIN) arrives one up")
+		for _, v in ipairs({ "nil", 0, -1, N + 1, 19, 20, 100, 1.5, 12.9, 0 / 0, math.huge, "abc", true }) do
 			eq(setting.lengthFromModParam(v ~= "nil" and v or nil), 18, "value " .. tostring(v))
 		end
 	end)
 
 	test("mod setting: lengths to mod.json's 0-based and a .con's 1-based defaultIndex", function()
-		for _, c in ipairs({ { 6, 0, 1 }, { 7, 1, 2 }, { 18, 12, 13 }, { 23, 17, 18 }, { 24, 18, 19 } }) do
+		for _, c in ipairs({ { MIN, 0, 1 }, { MIN + 1, 1, 2 }, { 18, 18 - MIN, 19 - MIN }, { 23, 23 - MIN, 24 - MIN }, { 24, N - 1, N } }) do
 			eq(setting.modDefaultIndex(c[1]), c[2], "mod.json index of " .. c[1])
 			eq(setting.conDefaultIndex(c[1]), c[3], ".con index of " .. c[1])
 		end
@@ -4892,13 +4944,13 @@ do
 		for _, spec in ipairs({ rampConData, medianSpec }) do
 			for _, q in ipairs(spec.params) do
 				if q.key == "rtr_cover_length" then
-					for len = 6, 24 do eq(q.numbers[setting.conDefaultIndex(len)], len, "numbers at " .. len) end
+					for len = MIN, 24 do eq(q.numbers[setting.conDefaultIndex(len)], len, "numbers at " .. len) end
 					eq(q.defaultIndex, setting.conDefaultIndex(18), "the file's own default is 18m")
 				end
 			end
 		end
 		-- round trip: mod.json's default index, as the game hands it (+ 1)
-		for len = 6, 24 do eq(setting.lengthFromModParam(setting.modDefaultIndex(len) + 1), len, "round trip " .. len) end
+		for len = MIN, 24 do eq(setting.lengthFromModParam(setting.modDefaultIndex(len) + 1), len, "round trip " .. len) end
 	end)
 
 	test("mod setting: this mod's params from runFn's 2nd or 3rd argument, by modId or folder name", function()
@@ -4929,7 +4981,7 @@ do
 
 	test("mod setting: the modifier moves only the cover slider's defaultIndex in both constructions", function()
 		for _, file in ipairs({ "ramp", "median" }) do
-			for _, len in ipairs({ 6, 7, 18, 24 }) do
+			for _, len in ipairs({ MIN, MIN + 1, 18, 24 }) do
 				local d = loadData("/content/road_tunnel_ramp/" .. file .. ".con.lua")
 				local before = loadData("/content/road_tunnel_ramp/" .. file .. ".con.lua")
 				local out = setting.modifier(len)("road_tunnel_ramp/" .. file .. ".con", d)
@@ -4960,6 +5012,7 @@ do
 		-- a length the slider lacks leaves it
 		local d = loadData("/content/road_tunnel_ramp/ramp.con.lua")
 		eq(setting.applyToCon(d, 36), false, "36 is not on the slider")
+		eq(setting.applyToCon(d, MIN - 1), false, "below the shortest is not on it (1.1.0's 6m)")
 	end)
 
 	test("mod setting: mod.script runFn adds one loadConstruction modifier from the mod params; a failing addModifier is logged, not raised", function()
@@ -4974,7 +5027,7 @@ do
 			addModifier = saved.addModifier
 			return ok, err, fns
 		end
-		for _, c in ipairs({ { nil, 18 }, { 1, 6 }, { 13, 18 }, { 19, 24 }, { 20, 18 }, { "abc", 18 } }) do
+		for _, c in ipairs({ { nil, 18 }, { 1, MIN }, { 18 - MIN + 1, 18 }, { N, 24 }, { N + 1, 18 }, { "abc", 18 } }) do
 			local got = {}
 			local ok, err = run({}, { road_tunnel_ramp = { rtr_cover_length_default = c[1] } },
 				function(kind, fn) got[#got + 1] = { kind, fn } end)
@@ -5013,7 +5066,7 @@ do
 		-- placed ramp is rebuilt with, beside its own params) as they are
 		local d = loadData("/content/road_tunnel_ramp/ramp.con.lua")
 		local before = loadData("/content/road_tunnel_ramp/ramp.con.lua")
-		setting.applyToCon(d, 6)
+		assert(setting.applyToCon(d, MIN), "the shortest is on the slider")
 		deepEq(d.updateScript, before.updateScript, "updateScript untouched")
 	end)
 end

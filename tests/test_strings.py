@@ -216,6 +216,18 @@ class StringsTest(unittest.TestCase):
         self.assertIn("初期設定", ja)
         self.assertNotIn("既定", ja)
         self.assertIn("置いたものの長さは変わりません", s["ja"]["rtr_cover_length_default_tooltip"])
+        # 1.1.1: no lower end in the tooltip (the slider shows it; it follows
+        # ramp_geometry.lua LID_MIN), and not 1.1.0's "6m ends at the portal"
+        self.assertNotIn("ends at the portal", s["en"]["rtr_cover_length_tooltip"])
+        self.assertNotIn("坑口でちょうど", s["ja"]["rtr_cover_length_tooltip"])
+        gone = ("6m ends", "6m では", "6m endet", "6m termina", "6m s’arrête",
+                "6m finisce", "6m는", "6m eindigt", "6m kończy", "6m заканчивается",
+                "6m 正好")
+        for lang in LANGS:
+            tip = s[lang]["rtr_cover_length_tooltip"]
+            for g in gone:
+                self.assertNotIn(g, tip, lang)
+            self.assertEqual(tip.count("18m"), 1, lang)
         self.assertIn("initial setting", s["en"]["rtr_cover_length_tooltip"])
         self.assertIn("already placed keep", s["en"]["rtr_cover_length_default_tooltip"])
 

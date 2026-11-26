@@ -7,6 +7,13 @@
 -- 合流共にユーザーにやってもらうことにします。プリセット設置が不可能なら
 -- スクリプト接続は無し。」, after the scripted S and 2+2 forks both failed).
 
+-- The Portal cover length slider's range and initial value come from
+-- ramp_geometry.lua (LID_MIN, LID_MAX, LID_DEFAULT), so the menu and the
+-- script that reads the value cannot drift apart [source: a mod.io mod's
+-- .con.lua requires its own module the same way, grimes_unterfuehrung
+-- unterfuehrung_simple.con.lua].
+local geometry = require "road_tunnel_ramp::/road_tunnel_ramp/ramp_geometry.lua"
+
 -- Evenly stepped slider options: labels "<n>m" and matching numbers.
 local function metres(lo, hi, step)
 	local values, numbers = {}, {}
@@ -33,7 +40,7 @@ local lengthValues, lengthNumbers = metres(40, 100, 2)
 local approachValues, approachNumbers = metres(30, 50, 2)
 local depthValues, depthNumbers = metres(13, 25, 1)
 local gradeValues, gradeNumbers = percents(-20, 20)
-local coverValues, coverNumbers = metres(6, 24, 1)
+local coverValues, coverNumbers = metres(geometry.LID_MIN, geometry.LID_MAX, 1)
 return {
 	autoRemovable = false,
 	availability = { yearFrom = 0, yearTo = 0 },
@@ -104,7 +111,7 @@ return {
 			uiType = "Slider",
 			values = coverValues,
 			numbers = coverNumbers,
-			defaultIndex = 13,  -- 18m
+			defaultIndex = geometry.LID_DEFAULT - geometry.LID_MIN + 1,  -- 18m (1-based)
 		},
 		{
 			key = "rtr_length",

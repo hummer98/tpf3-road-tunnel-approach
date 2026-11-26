@@ -85,7 +85,7 @@ M.WALL_MODELS = {
 -- with it (5.3 times from a 3m to a 16m wall), so a wall piece of height H is a stack of stackCount(H) boxes of
 -- H / n each, n = max(1, round(H / WALL_STACK)): a box of a wall 4.5m or
 -- higher is 4.5..9m high, 0.75..1.5 times the 6m it was baked for (the
--- mesh's maker, 2026-11-24). The portal cover, 6-24m long (lidLength), is
+-- mesh's maker, 2026-11-24). The portal cover, LID_MIN-24m long (lidLength), is
 -- laid in pieces of at most COVER_PIECE for the same reason (as one piece
 -- its top was stretched about 9 times along x), and across its width
 -- (19-59m, up to about 107m for three Large Streets) in coverAcross(W)
@@ -117,7 +117,7 @@ end
 
 -- The portal cover's whole length (rtr_cover_length). It starts
 -- LID_BEHIND (6m) in front of the portal as before (lidA) and ends
--- lidLength after that (lidB), so at 6m it ends on the portal. In 1.0.0 it
+-- lidLength after that (lidB), so a 6m lid would end on the portal. In 1.0.0 it
 -- was 36m (30m past the portal), and a player asked on mod.io why a road
 -- needs that huge slab. The user kept a lid, since the ground just past
 -- the portal may be shallow enough to meet buildings, and found 36m too
@@ -125,10 +125,20 @@ end
 -- する可能性があるので、ある程度の蓋、というかガード部が必要だと思われます。
 -- しかし、現在は確かに長過ぎる気がします」, then 「30とかそもそもいらないので、
 -- 6-18ぐらいをスライダーにするとかは？」 and 「全体の長さにしてください」.
--- So a 1m slider of the whole length, 6 to 24, 18 initially. M.layout
+-- So a 1m slider of the whole length, LID_MIN to 24, 18 initially. M.layout
 -- takes any length from LID_BEHIND on (36 gives 1.0.0's body); only the
 -- menu is held to the slider's range.
-M.LID_MIN, M.LID_MAX, M.LID_DEFAULT = 6, 24, 18
+-- LID_MIN was 6 in 1.1.0: a 6m lid covers nothing past the portal, and the
+-- top of the game's tunnel portal piece (tunnel_a_car) showed beyond the
+-- slab's end [in game, picture, 2026-11-26]. The user: 「6mはなんかおかしい
+-- ですよね」「下限を上げて隠す、ということですね」. 10 is provisional; e2e
+-- picks 8, 10 or 12. Everything else follows this one value: both .con
+-- sliders (their values, numbers and defaultIndex), the mod setting's
+-- positions (mod.script.lua's module), lidLengthOf below, and, through
+-- tools/cover_range.py (tests/test_cover_range.py fails until it is run),
+-- mod.json's setting and the ranges in README, the mod.io texts and the
+-- CHANGELOG's Unreleased section.
+M.LID_MIN, M.LID_MAX, M.LID_DEFAULT = 10, 24, 18
 M.LID_BEHIND = 6
 -- The ground over the tunnel's first HOLD_AHEAD past the portal is held
 -- over the tunnel roof whatever the lid's length: 1.0.0's lid reached that
@@ -147,14 +157,22 @@ function M.value(p, key, default, lo, hi)
 end
 local value = M.value
 
--- rtr_cover_length, read for the spec: a whole metre in the slider's range;
--- missing, junk or out of range (a value the menu cannot give) is the
--- initial 18m, not the nearest end, so nothing quietly keeps 1.0.0's 36m.
+-- rtr_cover_length, read for the spec: a whole metre in the slider's range.
+-- Below it, LID_MIN: a ramp placed with 1.1.0's 6-9m keeps that value in
+-- its params, and is rebuilt with it when its settings window changes it
+-- (or the game rebuilds it); the window's slider shows the nearest of its
+-- numbers for a value it lacks [source: gui script_param_util.tl
+-- findNumberIndex1; construction.tl clampParamValue keeps a value when the
+-- param has numbers], so that rebuild matches what it shows, and the
+-- portal piece is hidden there too. Missing, junk or above the range (a
+-- value no menu gave) is the initial 18m, not the nearest end, so nothing
+-- quietly keeps 1.0.0's 36m.
 function M.lidLengthOf(p)
 	local n = tonumber(p and p.rtr_cover_length)
-	if not n or n ~= n or n < M.LID_MIN or n > M.LID_MAX then
+	if not n or n ~= n or n > M.LID_MAX then
 		return M.LID_DEFAULT
 	end
+	if n < M.LID_MIN then return M.LID_MIN end
 	return math.floor(n + 0.5)
 end
 

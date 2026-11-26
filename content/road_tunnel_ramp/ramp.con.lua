@@ -1,3 +1,10 @@
+-- The Portal cover length slider's range and initial value come from
+-- ramp_geometry.lua (LID_MIN, LID_MAX, LID_DEFAULT), so the menu and the
+-- script that reads the value cannot drift apart [source: a mod.io mod's
+-- .con.lua requires its own module the same way, grimes_unterfuehrung
+-- unterfuehrung_simple.con.lua].
+local geometry = require "road_tunnel_ramp::/road_tunnel_ramp/ramp_geometry.lua"
+
 -- Evenly stepped slider options: labels "<n>m" and matching numbers.
 local function metres(lo, hi, step)
 	local values, numbers = {}, {}
@@ -23,7 +30,7 @@ local lengthValues, lengthNumbers = metres(40, 100, 2)
 local approachValues, approachNumbers = metres(2, 50, 2)
 local depthValues, depthNumbers = metres(13, 25, 1)
 local gradeValues, gradeNumbers = percents(-20, 20)
-local coverValues, coverNumbers = metres(6, 24, 1)
+local coverValues, coverNumbers = metres(geometry.LID_MIN, geometry.LID_MAX, 1)
 return {
 	autoRemovable = false,
 	availability = { yearFrom = 0, yearTo = 0 },
@@ -133,7 +140,7 @@ return {
 			defaultIndex = 1,
 		},
 		{
-			-- The portal cover's whole length, 6-24m in 1m steps, from 6m
+			-- The portal cover's whole length, LID_MIN-24m in 1m steps, from 6m
 			-- in front of the portal (ramp_geometry.lua LID_*). It was 36m
 			-- in 1.0.0 (a mod.io comment: why so huge a slab for a road);
 			-- some lid stays, as the ground just past the portal is shallow
@@ -145,7 +152,7 @@ return {
 			uiType = "Slider",
 			values = coverValues,
 			numbers = coverNumbers,
-			defaultIndex = 13,  -- 18m
+			defaultIndex = geometry.LID_DEFAULT - geometry.LID_MIN + 1,  -- 18m (1-based)
 		},
 		{
 			-- Only one-way (highway) templates care: which way traffic

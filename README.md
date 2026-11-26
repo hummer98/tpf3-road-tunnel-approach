@@ -67,7 +67,7 @@ Start a new game with this mod.
 | Underground depth | 13–25 m in 1 m steps (13 m keeps earth above the tunnel roof) | 16 m |
 | Parallel streets | Single, Double, Triple (2 m between carriageways) | Single |
 | Retaining wall | 1.5m / 3.4m, each side from the street edge to the outer edge of the wall top. 1.5m: right against the street edge, a 1.0 m wall and a 0.5 m top band, with a parapet 1.1 m over the ground (the street's own sidewalk or shoulder is the margin beside its lanes). 3.4m: a wider wall, 0.4 m clear, a 1.2 m wall and a coping reaching 1.8 m past it. The portal cover is as wide as the walls | 1.5m |
-| Portal cover length | 6–24 m in 1 m steps: the whole length of the portal cover, which always starts 6 m in front of the portal; 18 m reaches 12 m past the portal, 6 m ends at the portal | 18 m (see the mod setting below) |
+| Portal cover length | 10–24 m in 1 m steps: the whole length of the portal cover, which always starts 6 m in front of the portal; 18 m reaches 12 m past the portal; even the shortest covers the top of the game's tunnel portal | 18 m (see the mod setting below) |
 | Traffic direction | Into tunnel / Out of tunnel: one-way highways only; picks which way traffic flows on the street that snaps | Into tunnel |
 | Traffic side | Right-hand / Left-hand: set it to your game's driving side; only matters for parallel one-way highways | Right-hand |
 | Slope curvature | Shallow, Gentle, Normal, Steep, Very steep: the shape of the descent | Normal |
@@ -101,7 +101,7 @@ it end with it. The tunnel stub at the bottom stays 30 m whatever the cover
 length. (1.0.0 always laid a 36 m cover, 30 m past the portal.)
 
 Mod setting (in the game's mod settings when you start a new game):
-**Initial portal cover length**, 6–24 m, initially 18 m. It is the value
+**Initial portal cover length**, 10–24 m, initially 18 m. It is the value
 the Portal cover length slider of both constructions starts on; ramps
 already placed keep the length they were built with.
 
@@ -212,7 +212,7 @@ coping's outer edge + half the side street):
 | Entry street | 2 (Small Street, 16 m) / 4 (Medium Street, 24 m) / 6 (Large Street, 32 m) | 4 |
 | Centre street | One-lane highway (one-way, 9 m), Country Road (small, 14 m), Small Street (16 m), two lanes for motor vehicles only (8 m) | Motor vehicles only |
 | Retaining wall | 1.5m / 3.4m, as on the full-width ramp | 1.5m |
-| Portal cover length | 6–24 m in 1 m steps, as on the full-width ramp (from 6 m in front of the portal); the side streets end with it | 18 m |
+| Portal cover length | 10–24 m in 1 m steps, as on the full-width ramp (from 6 m in front of the portal); the side streets end with it | 18 m |
 | Ramp length | 40–100 m in 2 m steps | 100 m |
 | Approach length | 30–50 m in 2 m steps, from the snap point to the side streets' near ends | 30 m |
 | Underground depth | 13–25 m in 1 m steps | 16 m |
@@ -277,6 +277,7 @@ and road tool, left-hand traffic, sloped ground.
 | `content/road_tunnel_ramp/walls/aom_wall_box.msh`, `aom_slab_box.msh`, `aom_strip_box.msh` (each with its `.msh.blob`) | The meshes, made for this mod: each one box (x 0..1, y −0.225..0.225, z 0..1) stretched by the transforms, with texture coordinates set for its part's size: the wall box for a 4 m long, 6 m high wall piece (walls are stacked in boxes of about 6 m), the slab box for a 4 x 4 m cover piece 0.8 m thick (the cover is laid in pieces of about 4 m along and across, and the pattern runs on across the joints), the strip box for a 4 m coping 2.3 m wide |
 | `content/road_tunnel_ramp/walls/wall.mdl`, `slab.mdl`, `strip.mdl` | The part models: the wall, the portal cover (slab), the coping and parapet (strip), each with its own mesh path and the base game's light concrete; written by `tools/wall_models.py`, which sets the mesh paths in one place. `concrete.mdl` is the wall model again under the file name an earlier development build used; the constructions do not place it |
 | `tools/wall_models.py` | Writes the wall models (`--check` compares them with the files) |
+| `tools/cover_range.py` | Writes the Portal cover length range (`LID_MIN`, `LID_MAX`, `LID_DEFAULT` in `content/road_tunnel_ramp/ramp_geometry.lua`) into `mod.json`'s mod setting and the ranges in this README, the mod.io texts and the changelog's Unreleased section; the sliders read it themselves. To change the lower end, change `LID_MIN` and run it (`--check` compares) |
 | `strings.json` | Build-menu texts in the game's 13 languages; street names follow the base game's own |
 | `_metadata/modinfo.json` | Name, summary and description for the game's mod list and the in-game mod.io upload (one text for all languages, so "English / 日本語") |
 | `_metadata/0.png` | Cover image (required by the in-game uploader) |
@@ -378,7 +379,7 @@ revision is what lets `stage.py` accept the update. The tests fail when
 | 地下深度 | 13〜25 m、1 m 刻み（13 m あればトンネルの天井の上に土が残ります） | 16 m |
 | 並列車道数 | 1本・2本・3本（車道の間は 2 m） | 1本 |
 | 擁壁の幅 | 1.5m／3.4m。片側の、道路の縁から擁壁の上の外の縁まで。1.5m：道路の縁にじかに接して厚さ 1.0 m の壁と幅 0.5 m の上の帯、壁の上に地面から 1.1 m の壁高欄（車線の脇の余白は、道路の型の歩道か路肩）。3.4m：幅の広い擁壁で、0.4 m あけて厚さ 1.2 m の壁と、その外へ 1.8 m 張り出す笠石。ポータル天蓋の幅も擁壁に合わせます | 1.5m |
-| ポータル天蓋の長さ | 6〜24 m、1 m 刻み。ポータル天蓋の全体の長さで、天蓋はいつも坑口の 6 m 手前から始まります。18 m で坑口から 12 m 先まで、6 m で坑口でちょうど終わります | 18 m（下の MOD の設定で変えられます） |
+| ポータル天蓋の長さ | 10〜24 m、1 m 刻み。ポータル天蓋の全体の長さで、天蓋はいつも坑口の 6 m 手前から始まります。18 m で坑口から 12 m 先まで。いちばん短くしても、ゲームのトンネルの坑口の上の面は天蓋で隠れます | 18 m（下の MOD の設定で変えられます） |
 | 進行方向 | トンネルへ下る／トンネルから上る。一方通行の高速道路だけ。接続する車道の交通の向きを選びます | トンネルへ下る |
 | 通行区分 | 右側通行／左側通行。ゲームの通行区分に合わせます。一方通行の高速道路を並べたときだけ効きます | 右側通行 |
 | 勾配カーブ | ゆるい・なだらか・標準・急・非常に急。下り坂の形 | 標準 |
@@ -391,7 +392,7 @@ revision is what lets `stage.py` accept the update. The tests fail when
 
 ポータル天蓋は坑口の 6 m 手前から始まり、「ポータル天蓋の長さ」だけ延びて、トンネルの天井の上の土がいちばん薄い入口近くを覆います。天蓋の脇の土手と、天蓋の下に保つ地面も、天蓋の端で終わります。底のトンネル（30 m）の長さは、天蓋の長さによらず変わりません（1.0.0 の天蓋は、いつも全体 36 m、坑口から 30 m 先まででした）。
 
-MOD の設定（新しいゲームを始めるときの MOD の設定）：**ポータル天蓋の長さの初期値**。6〜24 m、初期設定は 18 m。2つの建設物の「ポータル天蓋の長さ」のスライダーが、新しく置くときにこの値から始まります。置いたものの長さは変わりません。
+MOD の設定（新しいゲームを始めるときの MOD の設定）：**ポータル天蓋の長さの初期値**。10〜24 m、初期設定は 18 m。2つの建設物の「ポータル天蓋の長さ」のスライダーが、新しく置くときにこの値から始まります。置いたものの長さは変わりません。
 
 ### 道路中央の地下進入路
 
@@ -426,7 +427,7 @@ MOD の設定（新しいゲームを始めるときの MOD の設定）：**ポ
 | 入口の道 | 2（「街道（小）」16 m）／4（「街道（中）」24 m）／6（「街道（大）」32 m） | 4 |
 | 中央の道 | 1車線高速道路（一方通行・9 m）、田舎道（小）（14 m）、街道（小）（16 m）、2車線 車専用（歩道なし・8 m） | 車専用 |
 | 擁壁の幅 | 1.5m／3.4m（全幅のランプと同じ） | 1.5m |
-| ポータル天蓋の長さ | 6〜24 m、1 m 刻み（全幅のランプと同じ。坑口の 6 m 手前から）。側道も天蓋の端で終わります | 18 m |
+| ポータル天蓋の長さ | 10〜24 m、1 m 刻み（全幅のランプと同じ。坑口の 6 m 手前から）。側道も天蓋の端で終わります | 18 m |
 | ランプの長さ | 40〜100 m、2 m 刻み | 100 m |
 | 手前の道路の長さ | 30〜50 m、2 m 刻み。接続点から側道の手前の端まで | 30 m |
 | 地下深度 | 13〜25 m、1 m 刻み | 16 m |
@@ -456,7 +457,7 @@ MOD の設定（新しいゲームを始めるときの MOD の設定）：**ポ
 
 ### 開発
 
-ファイルの役割とテスト・パッケージの手順は、英語の「Development」の節を見てください。テストは `luajit tests/run.lua` と `TMPDIR=<スクラッチ> python3 -m unittest discover -s tests`、zip は `python3 tools/package.py`、ステージングは `local/mods/` のコピーで、ゲームを止めて `python3 tools/stage.py`（最初は `--first-upload`）です。版は `VERSION`、変更は `CHANGELOG.md` の `## [Unreleased]` に書き、release は開発用の clone で `python3 tools/release.py patch|minor|major|X.Y.Z` です（手順は [docs/release.md](docs/release.md)）。
+ファイルの役割とテスト・パッケージの手順は、英語の「Development」の節を見てください。テストは `luajit tests/run.lua` と `TMPDIR=<スクラッチ> python3 -m unittest discover -s tests`、zip は `python3 tools/package.py`、ステージングは `local/mods/` のコピーで、ゲームを止めて `python3 tools/stage.py`（最初は `--first-upload`）です。天蓋の長さの下限を変えるときは、`content/road_tunnel_ramp/ramp_geometry.lua` の `LID_MIN` を直して `python3 tools/cover_range.py` を走らせます（`mod.json` の MOD の設定と、文の中の範囲を書き直します）。版は `VERSION`、変更は `CHANGELOG.md` の `## [Unreleased]` に書き、release は開発用の clone で `python3 tools/release.py patch|minor|major|X.Y.Z` です（手順は [docs/release.md](docs/release.md)）。
 
 ### クレジット
 
