@@ -669,6 +669,8 @@ function M.build(s)
 	-- chosen street so a tunnel of that type, laid on from its end, meets
 	-- its own type there, as before: at a construction's kept node a street
 	-- of another type let no car through [measured 2026-11-23 PC, PD].
+	-- With a tram track the runout is the descent's copy instead (initially,
+	-- M.tramEdgeTypes runoutDescent): a copy of this mod either way.
 	local streetRef = M.tramRef(s.street.ref, s.tramLanes, s.tramPower)
 	local descentRef = M.tramRef(g.descentRef, s.tramLanes, s.tramPower)
 	local edgeRef = streetRef
