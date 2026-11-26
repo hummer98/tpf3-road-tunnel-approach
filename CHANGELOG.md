@@ -11,10 +11,10 @@ The first public release is 1.0.0 (`revision` 10000).
 
 ### Fixed
 - **Portal cover length** is now 12–24 m in 1 m steps (1.1.0 went down to
-  6 m). A 6 m cover covers nothing past the portal, and the top of the
-  game's tunnel portal piece showed beyond its end. The mod setting
-  **Initial portal cover length** has the same range. 18 m initially and
-  24 m at most, as before.
+  6 m). With the shorter covers, the top of the game's tunnel portal
+  piece showed beyond the cover's end (at 6 m the cover ended on the
+  portal). The mod setting **Initial portal cover length** has the same
+  range. 18 m initially and 24 m at most, as before.
 
 ## [1.1.0] - 2026-11-26
 

@@ -20,6 +20,7 @@ import unittest
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 import cover_range  # noqa: E402
+import release  # noqa: E402
 
 GEOMETRY_LINE = re.compile(r"^(M\.LID_MIN,\s*M\.LID_MAX,\s*M\.LID_DEFAULT\s*=\s*)\d+", re.M)
 
@@ -97,11 +98,11 @@ class ChangeLidMinTest(unittest.TestCase):
             copy_repo(root)
             if released:
                 # as release.py leaves it before it runs these tests: an empty
-                # Unreleased above the new version's section
+                # Unreleased above the new version's section (its own cut)
                 log = os.path.join(root, "CHANGELOG.md")
                 with open(log, encoding="utf-8") as f:
                     text = f.read()
-                text = text.replace("## [Unreleased]\n", "## [Unreleased]\n\n## [9.9.9] - 2026-11-27\n", 1)
+                text = release.cut_changelog(text, "9.9.9", "2026-11-27")
                 with open(log, "w", encoding="utf-8") as f:
                     f.write(text)
             geo = os.path.join(root, cover_range.GEOMETRY)
@@ -114,10 +115,8 @@ class ChangeLidMinTest(unittest.TestCase):
             # The CHANGELOG only while its Unreleased section names the range
             # (after a release it is empty, and the released sections stay;
             # release.py runs these tests right after cutting it)
-            with open(os.path.join(root, "CHANGELOG.md"), encoding="utf-8") as f:
-                unreleased = re.split(r"^## \[(?!Unreleased)", f.read().split("## [Unreleased]", 1)[1],
-                                      maxsplit=1, flags=re.M)[0]
-            in_log = cover_range.fix_ranges(unreleased, lid_min, 24) != unreleased
+            # (the Unreleased section names the range until the release)
+            in_log = not released
             want = ["mod.json", "README.md", os.path.join("docs", "modio_description.md"),
                     os.path.join("_metadata", "modinfo.json")] + (["CHANGELOG.md"] if in_log else [])
             self.assertEqual(cover_range.stale(root), sorted(want))

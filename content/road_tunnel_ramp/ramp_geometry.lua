@@ -134,9 +134,10 @@ end
 -- ですよね」「下限を上げて隠す、ということですね」. 12, from e2e
 -- [measured 2026-11-26, pictures]: at 6-10m the portal piece's top still
 -- showed past the slab, at 11 and 12m it did not; 12 (6m past the portal)
--- leaves a margin over that edge. Everything else follows this one value: both .con
--- sliders (their values, numbers and defaultIndex), the mod setting's
--- positions (mod.script.lua's module), lidLengthOf below, and, through
+-- leaves a margin over that edge. Everything else follows this one
+-- value: both .con sliders (their values, numbers and defaultIndex), the
+-- mod setting's positions (mod.script.lua's module), lidLengthOf below,
+-- and, through
 -- tools/cover_range.py (tests/test_cover_range.py fails until it is run),
 -- mod.json's setting and the ranges in README, the mod.io texts and the
 -- CHANGELOG's Unreleased section.
