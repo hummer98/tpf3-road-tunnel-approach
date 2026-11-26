@@ -16,19 +16,10 @@ The first public release is 1.0.0 (`revision` 10000).
   as the base game's tram streets), or only the Right or Left lane, facing
   the tunnel (on a one-way highway, facing the way its traffic runs; which
   lane follows Traffic side). Catenary Yes (initial setting) or No, for
-  trams that need no wire. On the Median Tunnel Approach the centre gets
-  the track, the side streets none.
-
-### Fixed
-- **Portal cover length** is now 12–24 m in 1 m steps (1.1.0 went down to
-  6 m). With the shorter covers, the top of the game's tunnel portal
-  piece showed beyond the cover's end (at 6 m the cover ended on the
-  portal). The mod setting **Initial portal cover length** has the same
-  range. 18 m initially and 24 m at most, as before.
-- **No groove along the retaining wall.** With the 1.5 m wall a narrow
-  groove showed in the ground just outside the wall top, deeper toward the
-  portal: the terrain's slope from the trench floor up to the ground
-  reached past the top. It now lies under the wall and its top (see below).
+  trams that need no wire. On a one-way highway Both is its outer lane. On
+  the Median Tunnel Approach the centre gets the track, the side streets
+  none. With a track the tunnel stub is this mod's copy of the street, so a
+  tunnel laid on from it is another type.
 
 ### Changed
 - **Underground depth** (both constructions) is set in 0.5 m steps: 13,
@@ -43,6 +34,20 @@ The first public release is 1.0.0 (`revision` 10000).
   The 30 m tunnel stub is the chosen street, as before. The two lanes for
   motor vehicles only and the cars-only centre are unchanged (they have no
   sidewalk to take off).
+
+### Fixed
+- **Portal cover length** is now 12–24 m in 1 m steps (1.1.0 went down to
+  6 m). With the shorter covers, the top of the game's tunnel portal
+  piece showed beyond the cover's end (at 6 m the cover ended on the
+  portal). The mod setting **Initial portal cover length** has the same
+  range. 18 m initially and 24 m at most, as before.
+- **No groove along the retaining wall.** With the 1.5 m wall a narrow
+  groove showed in the ground just outside the wall top, deeper toward the
+  portal: the terrain's slope from the trench floor up to the ground
+  reached past the top. It now lies under the wall and its top (see
+  Changed).
+  Not on the two lanes for motor vehicles only (the Median Tunnel
+  Approach's initial centre too): they have no sidewalk to give the wall.
 
 ## [1.1.0] - 2026-11-26
 

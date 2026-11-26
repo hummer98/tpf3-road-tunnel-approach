@@ -21,8 +21,9 @@ Start a new game with this mod.
   levelled around it.
 - The streets and the tunnel are the base game's own types (the tunnel is the
   vanilla car tunnel), so vehicles use them like any other street. The
-  exceptions are this mod's own: the descent's street (next point) and the
-  street without sidewalks below.
+  exceptions are this mod's own: the descent's street (next point), the
+  streets with a tram track (copies of the others) and the street without
+  sidewalks below.
 - Only the flat approach keeps the chosen street's sidewalks. From the start
   of the descent into the tunnel the street has the same lanes with a 0.5 m
   shoulder each side and no sidewalks (a highway's wide shoulders become
@@ -31,7 +32,12 @@ Start a new game with this mod.
   wider, and the step of the terrain from the trench floor up to the ground
   lies under the wall and its top (with the 1.5 m wall a narrow groove used
   to show along the top). The 30 m tunnel stub at the bottom is the chosen
-  street again, so the tunnel you lay on from it can be the same type.
+  street again, so the tunnel you lay on from it can be the same type
+  (with a tram track the stub is this mod's tram copy, so your tunnel is
+  another type there; whether cars and trams get through there is not yet
+  checked in the game). The two lanes for motor vehicles only have no
+  sidewalk to take off: with the 1.5 m wall a narrow groove may still show
+  along their wall top.
 - Seven street types, from the one-lane highway (9 m) to the large street
   (32 m). Wider streets widen the trench, walls and portal cover with them.
 - An eighth, last in the list: two lanes for motor vehicles only (one
@@ -80,7 +86,7 @@ Start a new game with this mod.
 | Portal cover length | 12–24 m in 1 m steps: the whole length of the portal cover, which always starts 6 m in front of the portal; 18 m reaches 12 m past the portal; even the shortest covers the top of the game's tunnel portal | 18 m (see the mod setting below) |
 | Traffic direction | Into tunnel / Out of tunnel: one-way highways only; picks which way traffic flows on the street that snaps | Into tunnel |
 | Traffic side | Right-hand / Left-hand: set it to your game's driving side; only matters for parallel one-way highways | Right-hand |
-| Tram track | None / Both / Right / Left: a tram track on the flat approach, the descent and the tunnel stub, on the same lane all the way. Both: the outer lane of each direction, as the base game's tram streets have it. Right / Left: only the lane on that side, facing the tunnel (on a one-way highway, facing the way its traffic runs); which lane that is follows Traffic side | None |
+| Tram track | None / Both / Right / Left: a tram track on the flat approach, the descent and the tunnel stub, on the same lane all the way. Both: the outer lane of each direction, as the base game's tram streets have it (on a one-way highway: its outer lane). Right / Left: only the lane on that side, facing the tunnel (on a one-way highway, facing the way its traffic runs); which lane that is follows Traffic side | None |
 | Catenary | Yes / No: the overhead wire over the tram track; without it only trams that need no wire can run. No effect without a track | Yes |
 | Slope curvature | Shallow, Gentle, Normal, Steep, Very steep: the shape of the descent | Normal |
 | Ground slope along | −20% to +20% in 1% steps: rise of the ground toward the tunnel (negative = it falls toward the tunnel) | 0% |
@@ -297,7 +303,7 @@ and road tool, left-hand traffic, sloped ground.
 | `tools/wall_models.py` | Writes the wall models (`--check` compares them with the files) |
 | `tools/cover_range.py` | Writes the Portal cover length range (`LID_MIN`, `LID_MAX`, `LID_DEFAULT` in `content/road_tunnel_ramp/ramp_geometry.lua`) into `mod.json`'s mod setting and the ranges in this README, the mod.io texts and the changelog's Unreleased section; the sliders read it themselves. To change the lower end, change `LID_MIN` and run it (`--check` compares) |
 | `strings.json` | Build-menu texts in the game's 13 languages; street names follow the base game's own |
-| `tools/make_tram_templates.py` | Writes the tram copies of the streets (`content/road_tunnel_ramp/streets/tram_*`, 90 files: each street and descent with the track on both outer car lanes, the last or the first, with or without catenary) from the base game's `street.zip` and the mod's own templates (`--check` compares) |
+| `tools/make_tram_templates.py` | Writes the tram copies of the streets (`content/road_tunnel_ramp/streets/tram_*`, 82 files: each street and descent with the track on both outer car lanes (two-way streets only), the last or the first, with or without catenary) from the base game's `street.zip` and the mod's own templates (`--check` compares) |
 | `_metadata/modinfo.json` | Name, summary and description for the game's mod list and the in-game mod.io upload (one text for all languages, so "English / 日本語") |
 | `_metadata/0.png` | Cover image (required by the in-game uploader) |
 | `docs/modio_description.md` | Description for the mod.io web page |
@@ -374,8 +380,8 @@ revision is what lets `stage.py` accept the update. The tests fail when
 ### 機能
 
 - 1つの建設物で、進入路をまとめて敷きます。平らな手前の道路、笠石付きの擁壁にはさまれた切り通しの下り坂、天蓋の付いたポータル、底の長さ 30 m のトンネルです。まわりの地形も掘り下げてならします。
-- 道路とトンネルはバニラのもの（トンネルはバニラの自動車用トンネル）なので、車両はふつうの道路と同じように通ります。下り坂の道路（次の項）と、下の車専用の道路だけは、この MOD のものです。
-- 選んだ道路の歩道が残るのは、手前の平らな道路だけです。下り坂の始まりからトンネルまでは、同じ車線に両側 0.5 m の路肩が付いた、歩道のない道路になります（高速道路の広い路肩も 0.5 m になります）。道路トンネルに歩いて入る人はいないためです。外した幅は擁壁にあてて、擁壁がその分だけ内側まで来るので、ランプの幅は広がりません。掘割の底から地面までの地形の段差は、擁壁とその上の帯の下に隠れます（擁壁 1.5 m では、上の帯に沿って細い溝が見えていました）。底のトンネル（30 m）は選んだ道路に戻るので、そこから延ばすトンネルを同じ種類にできます。
+- 道路とトンネルはバニラのもの（トンネルはバニラの自動車用トンネル）なので、車両はふつうの道路と同じように通ります。下り坂の道路（次の項）、トラムの線路付きの道路（ほかの道路の写し）、下の車専用の道路だけは、この MOD のものです。
+- 選んだ道路の歩道が残るのは、手前の平らな道路だけです。下り坂の始まりからトンネルまでは、同じ車線に両側 0.5 m の路肩が付いた、歩道のない道路になります（高速道路の広い路肩も 0.5 m になります）。道路トンネルに歩いて入る人はいないためです。外した幅は擁壁にあてて、擁壁がその分だけ内側まで来るので、ランプの幅は広がりません。掘割の底から地面までの地形の段差は、擁壁とその上の帯の下に隠れます（擁壁 1.5 m では、上の帯に沿って細い溝が見えていました）。底のトンネル（30 m）は選んだ道路に戻るので、そこから延ばすトンネルを同じ種類にできます（トラムの線路を付けたときは、底のトンネルもこの MOD の写しの道路になるので、延ばすトンネルは別の種類になります。そこを車やトラムが通るかは、ゲームでまだ確認していません）。2車線の車専用の道路には外す歩道がないので、擁壁 1.5 m では、上の帯に沿う細い溝が残ることがあります。
 - 道路の種類は7つ。1車線高速道路（9 m）から街道（大）（32 m）まで。幅の広い道路を選ぶと、溝・擁壁・ポータル天蓋も広がります。
 - 一覧の最後に8つ目として、2車線の車専用の道路（各方向 3.5 m の1車線、8 m）があります。両側に 0.5 m の路肩があり、歩道はなく、歩行者は通れません。つないだ道路から車が入れるかは、ゲームでまだ確認していません。
 - 3本まで並べて敷けます。一方通行の高速道路では、上下線のそろった道路（2本）や 2+1（3本）になり、選んだ通行区分に合わせて各方向を正しい側に置きます。
@@ -402,7 +408,7 @@ revision is what lets `stage.py` accept the update. The tests fail when
 | ポータル天蓋の長さ | 12〜24 m、1 m 刻み。ポータル天蓋の全体の長さで、天蓋はいつも坑口の 6 m 手前から始まります。18 m で坑口から 12 m 先まで。いちばん短くしても、ゲームのトンネルの坑口の上の面は天蓋で隠れます | 18 m（下の MOD の設定で変えられます） |
 | 進行方向 | トンネルへ下る／トンネルから上る。一方通行の高速道路だけ。接続する車道の交通の向きを選びます | トンネルへ下る |
 | 通行区分 | 右側通行／左側通行。ゲームの通行区分に合わせます。一方通行の高速道路を並べたときだけ効きます | 右側通行 |
-| トラム線路 | なし／両方／右／左。手前の平らな道路・下り坂・底のトンネルに、同じ車線でトラムの線路を通します。両方：各方向の外側の車線（バニラのトラム線路付きの道路と同じ）。右・左：トンネルを向いて、その側の車線だけ（一方通行の高速道路では、車の進む向きに見て）。どの車線になるかは「通行区分」で決まります | なし |
+| トラム線路 | なし／両方／右／左。手前の平らな道路・下り坂・底のトンネルに、同じ車線でトラムの線路を通します。両方：各方向の外側の車線（バニラのトラム線路付きの道路と同じ。一方通行の高速道路では外側の車線）。右・左：トンネルを向いて、その側の車線だけ（一方通行の高速道路では、車の進む向きに見て）。どの車線になるかは「通行区分」で決まります | なし |
 | 架線 | あり／なし。トラムの線路の上の架線。なしでは、架線の要らないトラムだけが走れます。線路がないときは効きません | あり |
 | 勾配カーブ | ゆるい・なだらか・標準・急・非常に急。下り坂の形 | 標準 |
 | 地面の縦断勾配 | −20〜+20%、1% 刻み。トンネルへ向かって上る地面が＋（下る地面は−） | 0% |

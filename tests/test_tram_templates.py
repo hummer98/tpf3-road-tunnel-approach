@@ -19,17 +19,20 @@ class UpToDateTest(unittest.TestCase):
     def test_files_match_the_tool(self):
         with_base = os.path.exists(mtt.STREET_ZIP)
         out = mtt.outputs(mtt.STREET_ZIP, with_base)
-        self.assertEqual(len(out), (15 if with_base else 8) * 6)
+        # six copies a street, four for the four one-way ones (no b)
+        self.assertEqual(len(out), (15 * 6 - 4 * 2) if with_base else (8 * 6 - 2 * 2))
         for name, text in out.items():
             with open(os.path.join(mtt.STREETS, name), encoding="utf-8") as f:
                 self.assertEqual(f.read(), text, name)
 
     def test_no_stray_copies(self):
-        # every tram_* file is one the tool writes (90: 15 streets x 3 lane
-        # sets x 2 powers)
+        # every tram_* file is one the tool writes (82: 15 streets x 3 lane
+        # sets x 2 powers, less the one-way ones' b)
         stems = {s for s, _ in mtt.SOURCES}
         names = [n for n in os.listdir(mtt.STREETS) if n.startswith("tram_")]
-        self.assertEqual(len(names), 90)
+        self.assertEqual(len(names), 82)
+        for n in names:
+            self.assertFalse(re.match(r"tram_(highway_new|ramp_descent_highway)_\w+_b_", n), n)
         for n in names:
             m = re.match(r"tram_(\w+)_([bfk])_(e?tram)\.street_template\.lua$", n)
             self.assertTrue(m, n)

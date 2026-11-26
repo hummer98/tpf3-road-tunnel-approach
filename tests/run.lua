@@ -4562,10 +4562,10 @@ do
 				most = math.max(most, n(b[2]))
 			end
 		end
-		-- (578 since 2026-11-26: the descent's walls stand 2.5m further in,
-		-- so on the cross slope their heights, and one stack's box count,
-		-- differ)
-		eq(n(script.updateFn(defaultCap(), cases[#cases])), 578, "the widest, tallest ramp")
+		-- (579 since 2026-11-26: the descent's walls stand 2.5m further in
+		-- and are sheared across with the coping, so on the cross slope their
+		-- heights, and two stacks' box counts, differ)
+		eq(n(script.updateFn(defaultCap(), cases[#cases])), 579, "the widest, tallest ramp")
 		assert(most <= 600, "at most " .. most .. " models")
 		if os.getenv("RTR_PRINT_COUNTS") then
 			print("     most models in the cases: " .. most)
@@ -5481,13 +5481,18 @@ do
 		return out
 	end
 	-- every street a ramp or median edge can be laid with
+	-- (with whether it is one-way: those have no b copies)
 	local function sources()
-		local out = {}
+		local out, oneWay = {}, {}
 		for i = 1, 8 do
 			out[#out + 1] = cap.streets[i].ref
-			if cap.streets[i].descent then out[#out + 1] = cap.streets[i].descent.ref end
+			oneWay[cap.streets[i].ref] = cap.streets[i].oneWay
+			if cap.streets[i].descent then
+				out[#out + 1] = cap.streets[i].descent.ref
+				oneWay[cap.streets[i].descent.ref] = cap.streets[i].oneWay
+			end
 		end
-		return out
+		return out, oneWay
 	end
 	-- a base street's template: from street.zip when there, else nil
 	local STREET_ZIP = os.getenv("HOME") .. "/.local/share/Steam/steamapps/common/Transport Fever 3/base/content/infrastructure/street.zip"
@@ -5510,6 +5515,10 @@ do
 		eq(geometry.tramLanes(2, 1), "b", "both"); eq(geometry.tramLanes(2, 2), "b", "both, left-hand")
 		eq(geometry.tramLanes(3, 1), "f", "right, right-hand"); eq(geometry.tramLanes(4, 1), "k", "left, right-hand")
 		eq(geometry.tramLanes(3, 2), "k", "right, left-hand"); eq(geometry.tramLanes(4, 2), "f", "left, left-hand")
+		-- one-way: Both is the outer lane, as the base one-way tram streets
+		eq(geometry.tramLanes(2, 1, true), "f", "one-way both, right-hand")
+		eq(geometry.tramLanes(2, 2, true), "k", "one-way both, left-hand")
+		eq(geometry.spec(cap, { rtr_street = 4, rtr_tram = 2 }).tramLanes, "f", "Two-Lane Highway both")
 		local s = geometry.spec(cap, {})
 		eq(s.tramLanes, nil, "no track initially")
 		s = geometry.spec(cap, { rtr_tram = 3 })
@@ -5535,8 +5544,9 @@ do
 
 	test("tram: every copy is its street with TRAM (and ELECTRIC_TRAM) on the outer car lanes asked for, hidden, the rest as it was", function()
 		local n, compared = 0, 0
-		for _, ref in ipairs(sources()) do
-			for _, lanes in ipairs({ "b", "f", "k" }) do
+		local refs, oneWay = sources()
+		for _, ref in ipairs(refs) do
+			for _, lanes in ipairs(oneWay[ref] and { "f", "k" } or { "b", "f", "k" }) do
 				for _, power in ipairs({ "tram", "etram" }) do
 					local copyRef = geometry.tramRef(ref, lanes, power)
 					local t = templateOf(copyRef)
@@ -5571,7 +5581,14 @@ do
 				end
 			end
 		end
-		eq(n, 90, "copies")
+		eq(n, 82, "copies")
+		-- no b copy of a one-way street
+		for _, ref in ipairs(refs) do
+			if oneWay[ref] then
+				local path = geometry.tramRef(ref, "b", "tram"):match("^road_tunnel_ramp::(/.*)$")
+				eq(io.open(root .. "/content" .. path .. ".lua"), nil, "b copy of " .. ref)
+			end
+		end
 		if compared < n then print("     (base part skipped for " .. (n - compared) .. ": street.zip not found)") end
 	end)
 
@@ -5596,7 +5613,7 @@ do
 								local p = { rtr_street = i, rtr_count = count, rtr_side = side, rtr_direction = direction,
 									rtr_tram = tram, rtr_tram_wire = wire, rtr_length = 100 }
 								local r = script.updateFn(cap, p)
-								local lanes = geometry.tramLanes(tram, side)
+								local lanes = geometry.tramLanes(tram, side, street.oneWay)
 								local power = geometry.TRAM_POWER[wire]
 								local tag = string.format("street %d count %d side %d dir %d tram %d wire %d", i, count, side, direction, tram, wire)
 								local places = {}
@@ -5604,12 +5621,13 @@ do
 									eq(e.params.tramTrackType, nil, tag .. " edge " .. k .. ": no tramTrackType")
 									local want = geometry.tramRef(expectedRefOf(e, street, 100), lanes, power)
 									eq(e.params.type, want, tag .. " edge " .. k)
-									local t = templateOf(e.params.type:find("^road_tunnel_ramp::") and e.params.type
-										or geometry.tramRef(e.params.type, "b", "tram"))
-									local tr = lanesWith(t, "TRAM")
+									local own = e.params.type:find("^road_tunnel_ramp::")
 									if not lanes then
-										if e.params.type:find("^road_tunnel_ramp::") then eq(#tr, 0, tag .. " no track") end
+										-- a base street (no TRAM lanes) or this mod's own, without
+										if own then eq(#lanesWith(templateOf(e.params.type), "TRAM"), 0, tag .. " no track") end
 									else
+										local t = templateOf(e.params.type)
+										local tr = lanesWith(t, "TRAM")
 										assert(#tr >= 1, tag .. " edge " .. k .. " track")
 										local pos = {}
 										for _, l in ipairs(tr) do
@@ -5705,6 +5723,59 @@ test("depth: every half-metre option builds the ramp and the median down to that
 		local m = median.updateFn(medianCap, p)
 		assert(#m.edgeLists > 0, "median at " .. D)
 	end
+end)
+
+test("descent: on a cross slope the thickened wall's top runs under the coping all across (no wall over the top band)", function()
+	local cap = defaultCap()
+	-- the top box of a wall piece, or a coping piece: z of its top (and
+	-- bottom) at x, y (pieces run along x; model y -0.225..0.225, z 0..1)
+	local function at(m, x, y)
+		local t = m.transf
+		local u = (x - t[13]) / t[1]
+		local v = (y - t[14]) / t[6]
+		local base = t[15] + u * t[3] + v * t[7]
+		return base + t[11], base, u, v
+	end
+	local worst, n = -math.huge, 0
+	for i = 1, 7 do
+		for _, wall in ipairs({ 1, 2 }) do
+			for _, sl in ipairs({ { 0, 20 }, { 0, -20 }, { 8, 10 }, { -6, -15 }, { 20, 20 }, { -12, 5 } }) do
+				local p = { rtr_street = i, rtr_wall = wall, rtr_ground_along = sl[1], rtr_ground_across = sl[2] }
+				local r = script.updateFn(cap, p)
+				local g = rampGeo.layout(rampGeo.spec(cap, p))
+				for _, side in ipairs({ -1, 1 }) do
+					local tops = {}
+					for _, m in ipairs(modelsByTagPrefix(r, "wall_" .. side .. "_")) do
+						local seg, k = m.tag:match("_(%d+)_(%d+)$")
+						if not tops[seg] or tonumber(k) > tops[seg][1] then tops[seg] = { tonumber(k), m } end
+					end
+					local copings = modelsByTagPrefix(r, "coping_" .. side .. "_")
+					for _, top in pairs(tops) do
+						local m = top[2]
+						local xm = m.transf[13] + m.transf[1] * 0.5
+						if xm < g.lidA then
+							for _, y in ipairs({ side * g.wallInner, side * g.outer, side * (2 * g.outer - g.wallInner) }) do
+								local wz = at(m, xm, y)
+								for _, c in ipairs(copings) do
+									local ct, cb, u = at(c, xm, y)
+									if u >= 0 and u <= 1 then
+										local tag = string.format("street %d wall %d slope %d/%d side %d x %.1f y %.2f", i, wall, sl[1], sl[2], side, xm, y)
+										assert(wz <= ct + 1e-6, tag .. string.format(": wall top %.3f over the coping top %.3f", wz, ct))
+										-- (the coping's pieces run 4m along on their own, their
+										-- tilt taken at their middle: up to about 0.05m apart)
+										assert(wz >= cb - 0.1, tag .. string.format(": wall top %.3f under the coping %.3f", wz, cb))
+										worst = math.max(worst, wz - ct)
+										n = n + 1
+									end
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+	assert(n > 1000, "points checked: " .. n)
 end)
 
 print(string.format("\n%d passed, %d failed", passes, failures))

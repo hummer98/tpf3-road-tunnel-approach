@@ -235,9 +235,17 @@ function M.tramRef(ref, lanes, power)
 	return TRAM_DIR .. stem .. "_" .. lanes .. "_" .. (power or "etram") .. ".street_template"
 end
 
--- The copies' lanes for rtr_tram (1-4) and the traffic side (1 right-hand, 2 left).
-function M.tramLanes(tram, side)
-	if tram == 2 then return "b" end
+-- The copies' lanes for rtr_tram (1-4), the traffic side (1 right-hand, 2
+-- left) and whether the street is one-way. A one-way street has one
+-- direction, so Both is its outer lane, as on the base game's one-way tram
+-- streets (town_new_one_way_medium_tram_electrified: the outermost lane
+-- only) [source; review 2026-11-26]: the right one with right-hand traffic.
+-- The one-way streets have no b copies.
+function M.tramLanes(tram, side, oneWay)
+	if tram == 2 then
+		if oneWay then return side == 2 and "k" or "f" end
+		return "b"
+	end
 	if tram == 3 then return side == 2 and "k" or "f" end
 	if tram == 4 then return side == 2 and "f" or "k" end
 	return nil
@@ -287,7 +295,7 @@ function M.spec(cap, p)
 	end
 	local side = math.floor(value(p, "rtr_side", 1, 1, 2) + 0.5)
 	-- (the e2e's stand-ins have no tram copies: no track on them)
-	local tramLanes = not street.variant and M.tramLanes(math.floor(value(p, "rtr_tram", 1, 1, 4) + 0.5), side) or nil
+	local tramLanes = not street.variant and M.tramLanes(math.floor(value(p, "rtr_tram", 1, 1, 4) + 0.5), side, street.oneWay) or nil
 	local tramPower = M.TRAM_POWER[math.floor(value(p, "rtr_tram_wire", 1, 1, 2) + 0.5)]
 	-- 0.5 and up rounds to 1, the threshold the 0 / 1 switch had.
 	local approachMode = math.floor(value(p, "rtr_approach_hand_over", 1, 0, 2) + 0.5)
@@ -792,6 +800,30 @@ function M.build(s)
 	-- (g.approachWall), whose wall is the thinner one beside the sidewalk.
 	local function walls(x0, x1, segments, prefix, side)
 		local outer, wall = side.outer, side.wall
+		-- The box's top is level across, 0.3m over the surface at its
+		-- centreline, 0.02m into the coping, which is tilted with the
+		-- ground. A wall thickened for the descent (wall.extra) is up to
+		-- 3.5m across, and on a steep cross slope a level top came out over
+		-- the coping on the uphill side (0.12m at 20%, review 2026-11-26).
+		-- Such a wall's top follows the coping's underside instead: 0.02m
+		-- into it at the wall's centreline, and sheared across by the
+		-- coping's own tilt (copingAt, the formula copings() lays it with),
+		-- so it stays inside the coping all across, also where the surface
+		-- bends from the plane to the road's level. Its base starts lower by
+		-- the drop over half the wall, so the downhill face still reaches
+		-- 1.5m under the road. The others keep their level top, to the bit.
+		local function copingAt(x, wallSide)
+			local inside, outside = outer - wall.copingIn, copingOut
+			local mid = wallSide * (inside + outside) * 0.5
+			local width = outside - inside
+			local tilt = (surface(x, mid + width * 0.5) - surface(x, mid - width * 0.5)) / width
+			return surface(x, mid) + 0.28 + tilt * (wallSide * outer - mid), tilt
+		end
+		local function topAt(x, wallSide)
+			if not wall.extra then return surface(x, wallSide * outer) + 0.3, 0 end
+			local z, tilt = copingAt(x, wallSide)
+			return z + 0.02, tilt
+		end
 		for _, wallSide in ipairs({ -1, 1 }) do
 			for i = 0, segments - 1 do
 				local xa = x0 + (x1 - x0) * i / segments
@@ -802,11 +834,12 @@ function M.build(s)
 				local len = math.sqrt(dx * dx + dy * dy)
 				local za = roadZ(xa)
 				local zb = roadZ(xb)
-				local topA = surface(xa, wallSide * outer) + 0.3
-				local rise = surface(xb, wallSide * outer) + 0.3 - topA
+				local topA = topAt(xa, wallSide)
+				local rise = topAt(xb, wallSide) - topA
+				local _, tilt = topAt((xa + xb) * 0.5, wallSide)
 				-- The shear also tilts the base; start it lower when the
 				-- top rises so both ends stay 1.5m under the road.
-				local bottom = math.min(za, zb) - 1.5 - math.max(0, rise)
+				local bottom = math.min(za, zb) - 1.5 - math.max(0, rise) - math.abs(tilt) * wall.half
 				local height = topA - bottom
 				-- stacked in n boxes of one height (M.stackCount); all take
 				-- the same shear, so each box's top runs along the next one's
@@ -818,7 +851,7 @@ function M.build(s)
 						id = wallModel,
 						transf = {
 							dx, dy, rise, 0,
-							-wall.scale * dy / len, wall.scale * dx / len, 0, 0,
+							-wall.scale * dy / len, wall.scale * dx / len, tilt * wall.scale, 0,
 							0, 0, h, 0,
 							a[1], a[2], Z + bottom + h * (k - 1), 1,
 						},

@@ -16,9 +16,10 @@ tram station builds its TUNNEL edges from a template with tram lanes
 [source: stations street.zip underground_station.script.lua, as read for
 the median's tram, 2026-11-23].
 
-For each source below, six copies: the lanes
-  b  the outer car lane of each direction (a one-way street: its first and
-     last car lanes), the base game's tram streets' lanes
+For each source below, six copies (four for a one-way street, which has no
+b: Both on it is its outer lane, f or k by the traffic side): the lanes
+  b  the outer car lane of each direction, the base game's tram streets'
+     lanes
   f  the last car lane (two-way: the outer lane carrying traffic forward)
   k  the first car lane (two-way: the outer lane carrying traffic backward)
 and the power
@@ -167,6 +168,13 @@ def name(stem, lanes, power):
     return "tram_%s_%s_%s.street_template.lua" % (stem, lanes, power)
 
 
+def one_way(text):
+    """All car lanes forward (the highways and their descents)."""
+    return all(m.group(1) == "true"
+               for m in LANE.finditer(laneblock(text)[0])
+               if '"CAR"' in m.group(2))
+
+
 def outputs(street_zip=STREET_ZIP, with_base=True):
     """{ file name: text } for every copy (the base ones only with_base)."""
     out = {}
@@ -175,6 +183,8 @@ def outputs(street_zip=STREET_ZIP, with_base=True):
             continue
         text = read_source(source, street_zip)
         for lanes in LANES:
+            if lanes == "b" and one_way(text):
+                continue
             for power, modes in POWERS:
                 out[name(stem, lanes, power)] = make(text, lanes, modes, source)
     return out
