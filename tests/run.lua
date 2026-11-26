@@ -980,8 +980,15 @@ test("contract: con.lua agrees with script on defaults and clamp ranges", functi
 		assert(n >= 10 and n <= 25, "depth option " .. i .. " (" .. tostring(n) .. ") outside script clamp [10,25]")
 	end
 	eq(#dep.values, #dep.numbers, "every depth value needs a matching number")
-	-- 1m steps from 13m: no option sits below the 12.55m roof-cover minimum.
-	for i, n in ipairs(dep.numbers) do eq(n, 12 + i, "depth option " .. i) end
+	-- 0.5m steps from 13m (2026-11-26, the user: 「地下深度を0.5mきざみにして
+	-- ください。ほかはそのままで」): no option sits below the 12.55m
+	-- roof-cover minimum; labels "13m", "13.5m".
+	eq(#dep.numbers, 25, "depth options 13..25 step 0.5")
+	for i, n in ipairs(dep.numbers) do
+		eq(n, 12.5 + 0.5 * i, "depth option " .. i)
+		eq(dep.values[i], (i % 2 == 1) and string.format("%dm", n) or string.format("%.1fm", n), "depth label " .. i)
+	end
+	eq(dep.values[2], "13.5m", "half label"); eq(dep.values[25], "25m", "last label")
 	-- Length: 2m steps 40..100.
 	for i, n in ipairs(len.numbers) do eq(n, 38 + 2 * i, "length option " .. i) end
 	eq(#len.numbers, 31, "length options 40..100 step 2")
@@ -5672,6 +5679,33 @@ do
 		end
 	end)
 end
+
+------------------------------------------------------------------------
+-- Underground depth in 0.5m steps (2026-11-26). The halves reach the
+-- scripts as numbers; everything built from the depth must take them.
+------------------------------------------------------------------------
+test("depth: every half-metre option builds the ramp and the median down to that depth, the grade line and portal following", function()
+	local cap = defaultCap()
+	local grade = require "road_tunnel_ramp::/road_tunnel_ramp/grade.lua"
+	for D = 13, 25, 0.5 do
+		local p = { rtr_depth = D, rtr_length = 100 }
+		local r = script.updateFn(cap, p)
+		local g = rampGeo.layout(rampGeo.spec(cap, p))
+		eq(g.D, D, "D " .. D)
+		-- the runout lies at -D
+		local deepest = 0
+		for _, e in ipairs(r.edgeLists) do
+			for _, n in ipairs(e.edges) do deepest = math.min(deepest, n[1][3]) end
+		end
+		near(deepest, -D, 1e-9, "runout at " .. D)
+		-- the portal on the descent, the trench open in front of it
+		assert(g.portalX >= 8 - 1e-9 and g.portalX <= 100 + 1e-9, "portal at " .. D)
+		eq(r.edgeLists[2].edges[1][1][3], 0, "descent starts at the road at " .. D)
+		near(grade.maxGrade(p), 1.5 * D / 100, 1e-9, "grade at " .. D)
+		local m = median.updateFn(medianCap, p)
+		assert(#m.edgeLists > 0, "median at " .. D)
+	end
+end)
 
 print(string.format("\n%d passed, %d failed", passes, failures))
 os.exit(failures == 0 and 0 or 1)

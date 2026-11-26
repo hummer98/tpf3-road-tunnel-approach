@@ -16,7 +16,7 @@ Snap it to the end of a street. It lays a flat approach street, the descent in a
 - Only the flat approach keeps the sidewalks: the descent into the tunnel has the same lanes with narrow shoulders and no sidewalks, and the retaining walls take that width, so the ramp is no wider.
 - Up to three streets side by side (a divided highway or 2+1 with the one-way highways).
 - Tram track: none, both outer lanes, or only the right or left lane, with or without catenary, on the approach, the descent and the tunnel stub alike.
-- Ramp length 40–100 m, approach length 2–50 m, underground depth 13–25 m, slope curvature (five shapes), retaining wall 1.5 m (with a parapet) or 3.4 m, traffic side and direction.
+- Ramp length 40–100 m, approach length 2–50 m, underground depth 13–25 m in 0.5 m steps, slope curvature (five shapes), retaining wall 1.5 m (with a parapet) or 3.4 m, traffic side and direction.
 - Portal cover length 12–24 m (18 m initially; it starts 6 m in front of the portal). The mod setting **Initial portal cover length** picks the value new ramps start on.
 - Ground slope along and across (−20 to +20%): the walls, coping and cover follow sloped ground. The steepest grade of the settings and the measured slope of the ground under the cursor are shown under the build cursor.
 
@@ -52,7 +52,7 @@ License: MIT. Source code: https://github.com/hummer98/tpf3-road-tunnel-approach
 - 歩道が残るのは手前の平らな道路だけです。トンネルへの下り坂は、同じ車線に細い路肩が付いた歩道のない道路になり、その幅は擁壁にあてるので、ランプの幅は広がりません。
 - 3本まで並べられます（一方通行の高速道路で、上下線のそろった道路や 2+1）。
 - トラム線路：なし・各方向の外側の車線・右か左の車線だけ。架線のあり・なし。手前の道路・下り坂・底のトンネルの全部に通します。
-- ランプの長さ 40〜100 m、手前の道路の長さ 2〜50 m、地下深度 13〜25 m、勾配カーブ（5種類）、擁壁 1.5 m（壁高欄付き）か 3.4 m、通行区分、進行方向。
+- ランプの長さ 40〜100 m、手前の道路の長さ 2〜50 m、地下深度 13〜25 m（0.5 m 刻み）、勾配カーブ（5種類）、擁壁 1.5 m（壁高欄付き）か 3.4 m、通行区分、進行方向。
 - ポータル天蓋の長さ 12〜24 m（初期設定 18 m。天蓋は坑口の 6 m 手前から始まります）。MOD の設定「天蓋の長さの初期値」で、新しく置くときの値を選べます。
 - 地面の縦断・横断勾配（−20〜+20%）：傾斜地で擁壁・笠石・天蓋が地面に沿います。いまの設定での最大勾配と、カーソルの下の地面の勾配を、配置カーソルの下に出します。
 

@@ -15,10 +15,14 @@
 local geometry = require "road_tunnel_ramp::/road_tunnel_ramp/ramp_geometry.lua"
 
 -- Evenly stepped slider options: labels "<n>m" and matching numbers.
+-- A step under 1m (the depth's 0.5m) labels the halves "13.5m" and the
+-- whole metres "13m"; each number is lo + k * step, counted in whole steps,
+-- so no rounding builds up along the slider.
 local function metres(lo, hi, step)
 	local values, numbers = {}, {}
-	for n = lo, hi, step do
-		values[#values + 1] = string.format("%dm", n)
+	for k = 0, math.floor((hi - lo) / step + 0.5) do
+		local n = lo + k * step
+		values[#values + 1] = n == math.floor(n) and string.format("%dm", n) or string.format("%.1fm", n)
 		numbers[#numbers + 1] = n
 	end
 	return values, numbers
@@ -38,7 +42,11 @@ end
 function data()
 local lengthValues, lengthNumbers = metres(40, 100, 2)
 local approachValues, approachNumbers = metres(30, 50, 2)
-local depthValues, depthNumbers = metres(13, 25, 1)
+-- 0.5m steps (the user, 2026-11-26: 「地下深度を0.5mきざみにしてください。
+-- ほかはそのままで」); the numbers reach updateFn as they are, halves too, as
+-- the base game's own decimal numbers do (industryutil.lua boostFactor
+-- 0.5, 0.75 ...) [source; guess: not yet seen in game for this slider].
+local depthValues, depthNumbers = metres(13, 25, 0.5)
 local gradeValues, gradeNumbers = percents(-20, 20)
 local coverValues, coverNumbers = metres(geometry.LID_MIN, geometry.LID_MAX, 1)
 return {
@@ -142,7 +150,7 @@ return {
 			uiType = "Slider",
 			values = depthValues,
 			numbers = depthNumbers,
-			defaultIndex = 4,  -- 16m
+			defaultIndex = 7,  -- 16m (13, 13.5, ... 1-based)
 		},
 		{
 			-- Only the one-way centre (the highway) reads it, as on the

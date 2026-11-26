@@ -31,6 +31,8 @@ The first public release is 1.0.0 (`revision` 10000).
   reached past the top. It now lies under the wall and its top (see below).
 
 ### Changed
+- **Underground depth** (both constructions) is set in 0.5 m steps: 13,
+  13.5, ... 25 m, 16 m initially as before.
 - **The descent has no sidewalks** (both constructions). Only the flat
   approach keeps the chosen street's sidewalks; from the start of the
   descent into the tunnel the street has the same lanes with a 0.5 m

@@ -74,7 +74,7 @@ Start a new game with this mod.
 | Street type | One-Lane Highway (one-way, 9 m), Small Country Road (14 m), Small Street (16 m), Two-Lane Highway (one-way, 18 m), Medium Country Road (22 m), Medium Street (24 m), Large Street (32 m), Two lanes, motor vehicles only (no sidewalk, 8 m) | Small Street |
 | Ramp length | 40–100 m in 2 m steps: the length of the descent, used as chosen | 100 m |
 | Approach length | 2–50 m in 2 m steps: flat street before the descent, from the snap point | 20 m |
-| Underground depth | 13–25 m in 1 m steps (13 m keeps earth above the tunnel roof) | 16 m |
+| Underground depth | 13–25 m in 0.5 m steps (13 m keeps earth above the tunnel roof) | 16 m |
 | Parallel streets | Single, Double, Triple (2 m between carriageways) | Single |
 | Retaining wall | 1.5m / 3.4m, each side from the street edge to the outer edge of the wall top. 1.5m: right against the street edge, a 1.0 m wall and a 0.5 m top band, with a parapet 1.1 m over the ground (the street's own sidewalk or shoulder is the margin beside its lanes). 3.4m: a wider wall, 0.4 m clear, a 1.2 m wall and a coping reaching 1.8 m past it. Along the descent the wall is thicker by the sidewalk taken off (for example 3.5 m instead of 1.0 m beside a Small Street), its outer edge where it was. The portal cover is as wide as the walls | 1.5m |
 | Portal cover length | 12–24 m in 1 m steps: the whole length of the portal cover, which always starts 6 m in front of the portal; 18 m reaches 12 m past the portal; even the shortest covers the top of the game's tunnel portal | 18 m (see the mod setting below) |
@@ -230,7 +230,7 @@ coping's outer edge + half the side street):
 | Portal cover length | 12–24 m in 1 m steps, as on the full-width ramp (from 6 m in front of the portal); the side streets end with it | 18 m |
 | Ramp length | 40–100 m in 2 m steps | 100 m |
 | Approach length | 30–50 m in 2 m steps, from the snap point to the side streets' near ends | 30 m |
-| Underground depth | 13–25 m in 1 m steps | 16 m |
+| Underground depth | 13–25 m in 0.5 m steps | 16 m |
 | Traffic direction | Into tunnel / Out of tunnel; the highway centre only | Into tunnel |
 | Traffic side | Right-hand / Left-hand: set it to your game's driving side; it sets which way each side street runs, so the sidewalk is on the outside | Right-hand |
 | Tram track | None / Both / Right / Left: on the centre's flat approach, descent and tunnel stub, as on the full-width ramp; the side streets get none | None |
@@ -396,7 +396,7 @@ revision is what lets `stage.py` accept the update. The tests fail when
 | 道路種類 | 1車線高速道路（一方通行・9 m）、田舎道（小）（14 m）、街道（小）（16 m）、2車線高速道路（一方通行・18 m）、田舎道（中）（22 m）、街道（中）（24 m）、街道（大）（32 m）、2車線 車専用（歩道なし・8 m） | 街道（小） |
 | ランプの長さ | 40〜100 m、2 m 刻み。下り坂の長さで、選んだ長さがそのまま使われます | 100 m |
 | 手前の道路の長さ | 2〜50 m、2 m 刻み。下り始めるまでの平らな道路（接続点から） | 20 m |
-| 地下深度 | 13〜25 m、1 m 刻み（13 m あればトンネルの天井の上に土が残ります） | 16 m |
+| 地下深度 | 13〜25 m、0.5 m 刻み（13 m あればトンネルの天井の上に土が残ります） | 16 m |
 | 並列車道数 | 1本・2本・3本（車道の間は 2 m） | 1本 |
 | 擁壁の幅 | 1.5m／3.4m。片側の、道路の縁から擁壁の上の外の縁まで。1.5m：道路の縁にじかに接して厚さ 1.0 m の壁と幅 0.5 m の上の帯、壁の上に地面から 1.1 m の壁高欄（車線の脇の余白は、道路の型の歩道か路肩）。3.4m：幅の広い擁壁で、0.4 m あけて厚さ 1.2 m の壁と、その外へ 1.8 m 張り出す笠石。下り坂の区間では、外した歩道の分だけ壁が厚くなり（たとえば「街道（小）」の脇では 1.0 m でなく 3.5 m）、外の縁は変わりません。ポータル天蓋の幅も擁壁に合わせます | 1.5m |
 | ポータル天蓋の長さ | 12〜24 m、1 m 刻み。ポータル天蓋の全体の長さで、天蓋はいつも坑口の 6 m 手前から始まります。18 m で坑口から 12 m 先まで。いちばん短くしても、ゲームのトンネルの坑口の上の面は天蓋で隠れます | 18 m（下の MOD の設定で変えられます） |
@@ -452,7 +452,7 @@ MOD の設定（新しいゲームを始めるときの MOD の設定）：**ポ
 | ポータル天蓋の長さ | 12〜24 m、1 m 刻み（全幅のランプと同じ。坑口の 6 m 手前から）。側道も天蓋の端で終わります | 18 m |
 | ランプの長さ | 40〜100 m、2 m 刻み | 100 m |
 | 手前の道路の長さ | 30〜50 m、2 m 刻み。接続点から側道の手前の端まで | 30 m |
-| 地下深度 | 13〜25 m、1 m 刻み | 16 m |
+| 地下深度 | 13〜25 m、0.5 m 刻み | 16 m |
 | 進行方向 | トンネルへ下る／トンネルから上る。中央が高速道路のときだけ | トンネルへ下る |
 | 通行区分 | 右側通行／左側通行。ゲームの通行区分に合わせます。各側道の向きが決まり、歩道が外側になります | 右側通行 |
 | トラム線路 | なし／両方／右／左。中央の道の手前の平らな道路・下り坂・底のトンネルに、全幅のランプと同じく通します。側道には付きません | なし |
